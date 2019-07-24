@@ -29,5 +29,11 @@ end
 
 theta = mod(atan(y/x), 2*pi);
 
+if (theta > 3*pi/2)
+    if (y > 0)
+        theta = theta - pi;
+    end
+end
+
 end
 

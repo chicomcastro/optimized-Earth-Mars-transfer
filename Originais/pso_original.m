@@ -1,19 +1,17 @@
 %function pso()
 %   pso busca o minimo
 
-clear all
-
-best_global = zeros(1,8);
+best_global = zeros(1,7);
 iteration = 0;
-max_iteration = 200;
+max_iteration = 100;
 
 % Hyperparams struct
-hyperparams.num_particles = 1000;
-hyperparams.lb = [0 0 0 0 0 0 0 0];
-hyperparams.ub = [2*pi 2*pi 2*pi 2*pi 60 365 60 2*pi];
+hyperparams.num_particles = 10^2;
+hyperparams.lb = [0 0 0 0 0 0 0];
+hyperparams.ub = [2*pi 2*pi 2*pi 2*pi 30 365 30];
 hyperparams.w = 0.9;
-hyperparams.phip = 0.5;
-hyperparams.phig = 0.6;
+hyperparams.phip = 0.6;
+hyperparams.phig = 0.8;
 
 %function initialize_particles(num_particles, lb, ub):
 for i = 1:hyperparams.num_particles
@@ -34,7 +32,7 @@ while ~check_stopping_condition(iteration, max_iteration)
     w = hyperparams.w;
     phip = hyperparams.phip;
     phig = hyperparams.phig;
-    best_iteration = zeros(1,8);
+    best_iteration = zeros(1,7);
     
     for i = 1:length(particles)
         rp = random_uniform(0.0, 1.0);
@@ -59,10 +57,12 @@ best_global
 custo(best_global)
 
 % Create a table with the data and variable names
-if exist('T','var')
-    T = [T; table(custo(best_global), best_global, hyperparams.num_particles, max_iteration, 'VariableNames', { 'Custo_total', 'Best_global', 'Num_particles', 'Max_iterations'} )];
+if exist('T','var') == 1
+    T = [T; table(custo(best_global), best_global(1), best_global(2), best_global(3), best_global(4), best_global(5), best_global(6), best_global(7), hyperparams.num_particles, max_iteration, 'VariableNames', { 'Custo_total', 'theta_a', 'theta_b', 'theta_c', 'theta_d', 't_ab', 't_bc', 't_cd', 'Num_particles', 'Max_iterations'} )];
+elseif exist('resultados.txt', 'file') == 2
+    T = readtable('resultados.txt');
 else
-    T = table(custo(best_global), best_global, hyperparams.num_particles, max_iteration, 'VariableNames', { 'Custo_total', 'Best_global', 'Num_particles', 'Max_iterations'} );
+    T = table(custo(best_global), best_global(1), best_global(2), best_global(3), best_global(4), best_global(5), best_global(6), best_global(7), hyperparams.num_particles, max_iteration, 'VariableNames', { 'Custo_total', 'theta_a', 'theta_b', 'theta_c', 'theta_d', 't_ab', 't_bc', 't_cd', 'Num_particles', 'Max_iterations'} );
 end
 % Write data to text file
 writetable(T, 'resultados.txt')

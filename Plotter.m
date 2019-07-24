@@ -1,5 +1,6 @@
 % Vetor de estado que caracteriza nossa transferencia de interesse
-x = [ 2.6147    6.2832    3.0095    0.8353 3.09 261.96 2.28];
+%x = [ 2.6147    6.2832    3.0095    0.8353 3.09 261.96 2.28];
+x = [ 2.3836    4.4055    3.1416         0    1.1648  356.7621   33.7409         0];
 
 funcao_custo;
 
@@ -41,7 +42,7 @@ figure;
 legenda = string();
 legenda(end+1) = plotar([0,0], "Marte");
 legenda(end+1) = plotar(r_c_marte/R_m, "C");
-%legenda(end+1) = plotar(r_d_marte/R_m, "D");
+%legenda(end+1) = plotar(r_d_marte/R_m, "D");  % Está dando problema
 legenda(end+1) = plotar([r_d_marte(1), -r_d_marte(2)]/R_m, "D");
 legenda(end+1) = plotar([x' y']/R_m, "Trajetória", '-');
 grid on;
