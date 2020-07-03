@@ -14,8 +14,9 @@ execution_time = toc;
 disp("Elapsed time was " + execution_time + "seconds.")
 
 % Print bests results
-disp("Best global: " + best_global);
-disp("Coust: " + custo(best_global) + " km/s");
+disp("Best global values: ");
+disp(best_global);
+disp("Minimal coust found: " + custo(best_global) + " km/s");
 
 % Create a table with the data and variable names to store
 T_to_append = table(...

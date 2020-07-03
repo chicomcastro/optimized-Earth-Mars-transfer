@@ -1,10 +1,11 @@
-%function pso()
-%   pso busca o minimo
+%% function pso()
+%   Particle Swarm Optimization algorithm implementation
 
-best_global = zeros(1,7);
+dimension = length(hyperparams.lb);
+best_global = zeros(1,dimension);
 iteration = 0;
 
-% Hyperparams struct
+%% Hyperparams struct
 hyperparams.num_particles = num_particles;
 hyperparams.lb = lower_boundary;
 hyperparams.ub = upper_boundary;
@@ -16,7 +17,7 @@ if length(hyperparams.lb) ~= length(hyperparams.ub)
     disp("Dimensional error")
 end
 
-%function initialize_particles(num_particles, lb, ub):
+%% function initialize_particles(num_particles, lb, ub):
 for i = 1:hyperparams.num_particles
     particles(i) = Particle;
     % random_uniform here operates on arrays
@@ -26,24 +27,34 @@ for i = 1:hyperparams.num_particles
     particles(i).best = zeros(1,length(particles(i).x));
 end
 
+%% main loop
 while ~check_stopping_condition(iteration, max_iteration)
     disp(num2str(iteration/max_iteration*100, "%.2f") + "%");
     iteration = iteration + 1;
     %[particles, best_iteration] = update_particles(particles,...
     %    best_global, hyperparams);
     
-    %function update_particles(particles, best_global, hyperparams):
+    %% function update_particles(particles, best_global, hyperparams):
     w = hyperparams.w;
     phip = hyperparams.phip;
     phig = hyperparams.phig;
-    best_iteration = zeros(1,7);
+    best_iteration = zeros(1,dimension);
     
     for i = 1:length(particles)
         rp = random_uniform(0.0, 1.0);
         rg = random_uniform(0.0, 1.0);
-        particles(i).v = w * particles(i).v + phip * rp * (particles(i).best - particles(i).x) + phig * rg * (best_global - particles(i).x);
+        particles(i).v = w * particles(i).v + ...
+            phip * rp * (particles(i).best - ...
+            particles(i).x) + ...
+            phig * rg * (best_global - particles(i).x);
         particles(i).x = particles(i).x + particles(i).v;
-        particles(i).x = min(max(particles(i).x, hyperparams.lb), hyperparams.ub);
+        particles(i).x = min(...
+            max(...
+                particles(i).x, ...
+                hyperparams.lb ...
+            ), ...
+            hyperparams.ub ...
+        );
         if custo(particles(i).x) < custo(particles(i).best)
             particles(i).best = particles(i).x;
             if custo(particles(i).x) < custo(best_iteration)
