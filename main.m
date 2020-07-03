@@ -1,23 +1,28 @@
+%% Main
 % This script run all rotines needed to provide a minimal coust estimation
 % for a Earth-Mars transfer throught a PSO algorithm paremeter optimization
 
+%% Inputs
 % Define optimization parameters
 max_iteration = 100;                                % Iteractions to run
 num_particles = 100;                                % Particles in swarm
 lower_boundary = [0 0 0 0 0 0 0];                   % Lower boundary
 upper_boundary = [2*pi 2*pi 2*pi 2*pi 30 365 30];   % Upper boundary
 
+%% Optimization
 % Run optimization
 tic
 pso;
 execution_time = toc;
 disp("Elapsed time was " + execution_time + "seconds.")
 
+%% Results
 % Print bests results
 disp("Best global values: ");
 disp(best_global);
 disp("Minimal coust found: " + custo(best_global) + " km/s");
 
+%% Storage
 % Create a table with the data and variable names to store
 T_to_append = table(...
     custo(best_global), ...
@@ -58,3 +63,6 @@ end
 
 % Write data to text file
 writetable(T, output_file_name);
+
+%% Images
+% call Plotter for x = best_global

@@ -6,7 +6,7 @@ else
     mark = mark_;
     lineWidth = 1;
 end
-plot(r(:,1),r(:,2), mark,'LineWidth',lineWidth);
+plot(r(:,1),r(:,2), mark, 'LineWidth', lineWidth);
 hold on;
 value = legenda;
 end
