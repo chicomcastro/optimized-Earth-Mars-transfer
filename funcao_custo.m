@@ -1,8 +1,8 @@
 %function value = funcao_custo(x)
 %Funcao para calculo do custo total de transferencia interplanetaria
 %   Considera-se 4 pontos principais, com 3 orbita coladas, portanto
-%   Uso: x = [ theta_a, theta_b, theta_c, theta_d, t_ab, t_bc, t_cd, theta_rel]
-%   Ex.: x = [ pi/2 -pi/2 pi/2 -pi/2 15 270 15 pi];
+%   Uso: x = [ theta_a, theta_b, theta_c, theta_d, t_ab, t_bc, t_cd ]
+%   Ex.: x = [ pi/2 -pi/2 pi/2 -pi/2 15 270 15 ];
 
 base = [1 0 0];             % Vetor de referência da base canônica de R3
 M = @(a)[ cos(a)  sin(a)  0;
@@ -22,17 +22,11 @@ r_b_terra = r_tb * base*M(x(2));  % SOI da Terra
 r_c_marte = r_mc * base*M(x(3));  % SOI de Marte
 r_d_marte = r_md * base*M(x(4));  % Definida em projeto
 
-%Posições iniciais dos planetas
-r_terra_sol_ini = r_st * [0 -1 0];
-r_marte_sol_ini = r_sm * [cos(x(8)-pi/2) sin(x(8)-pi/2) 0];
+% Posições dos planetas
+r_terra_sol = r_st * [0 -1 0];
+r_marte_sol = r_sm * [0 1 0];
 
-% Posições dos planetas quando a espaçonave passa pelas SOIs
-theta_terra_fin = posicaoterra(-pi/2,x(5));
-theta_marte_fin = posicaomarte(x(8)-pi/2,x(5)+x(6));
-r_terra_sol = r_st * [cos(theta_terra_fin) sin(theta_terra_fin) 0];
-r_marte_sol = r_sm * [cos(theta_marte_fin) sin(theta_marte_fin) 0]; 
-
-% Tempos de transferência 
+% Tempos de transferência
 t_ab = x(5);
 t_bc = x(6);
 t_cd = x(7);
@@ -46,7 +40,7 @@ GM = mi_terra;
 [V1, V2, extremal_distances, exitflag] = lambert(r1, r2, t_voo, 0, GM);
 v_a_1 = (mi_terra/norm(r1))^(0.5)*[-sin(x(1)) cos(x(1)) 0];
 v_a_2 = V1;
-v_b_1 = V2 + (mi_sol/norm(r_terra_sol))^(0.5)*[-sin(theta_terra_fin) cos(theta_terra_fin) 0];  % V em rel ao Sol
+v_b_1 = V2 + (mi_sol/norm(r_terra_sol))^(0.5)*[1 0 0];  % V em rel ao Sol
 if (norm(v_a_2 - v_a_1) <= norm(-v_a_2 - v_a_1))
     deltaV(1) = norm(v_a_2 - v_a_1);
 else
@@ -64,7 +58,7 @@ t_voo = t_bc;
 GM = mi_sol;
 [V1, V2, extremal_distances, exitflag] = lambert(r1, r2, t_voo, 0, GM);
 v_b_2 = V1;
-v_c_1 = V2 - (mi_sol/norm(r_marte_sol))^(0.5)*[-sin(theta_marte_fin) cos(theta_marte_fin) 0];  % V em rel a Marte
+v_c_1 = V2 - (mi_sol/norm(r_marte_sol))^(0.5)*[-1 0 0];  % V em rel a Marte
 deltaV(2) = norm(v_b_2 - v_b_1);
 
 % Transferência SOI(Marte)-Marte
