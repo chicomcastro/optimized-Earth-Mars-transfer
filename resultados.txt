@@ -1,2 +1,0 @@
-Custo_total,Best_global_1,Best_global_2,Best_global_3,Best_global_4,Best_global_5,Best_global_6,Best_global_7,Best_global_8,Num_particles,Max_iterations
-9.48263663266061,0,3.14159310725109,0,3.14158851225782,37.1662773542723,259.116341223283,60,1.06821618888096,1000,200
