@@ -28,6 +28,5 @@ codegen/
 octave-workspace
 
 # Custom files
-resultados.txt
-results.txt
+*.txt
 notes.md
