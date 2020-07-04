@@ -1,7 +1,7 @@
 %% function pso()
 %   Particle Swarm Optimization algorithm implementation
 
-dimension = length(hyperparams.lb);
+dimension = length(lower_boundary);
 best_global = zeros(1,dimension);
 iteration = 0;
 

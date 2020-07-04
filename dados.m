@@ -23,9 +23,7 @@ t_voo = @(mi, a) 2*pi*(a^3/mi)^0.5;
 h_o = 0.1*R_t; % Altitude da órbita de saída
 h_f = 0.3*R_m; % Altitude da orbita de chegada
 
-r_ta = R_t + h_o;
-r_tb = soi(r_st, m_terra, m_sol);
-r_sb = r_st - soi(r_st, m_terra, m_sol);
-r_sc = r_sm - soi(r_sm, m_marte, m_sol);
-r_mc = soi(r_sm, m_marte, m_sol);
-r_md = R_m + h_f;
+R_oe_terra = R_t + h_o;
+R_soi_terra = soi(r_st, m_terra, m_sol);
+R_soi_marte = soi(r_sm, m_marte, m_sol);
+R_oe_marte = R_m + h_f;

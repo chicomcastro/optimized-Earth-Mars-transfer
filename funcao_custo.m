@@ -2,7 +2,7 @@
 %Funcao para calculo do custo total de transferencia interplanetaria
 %   Considera-se 4 pontos principais, com 3 orbita coladas, portanto
 %   Uso: x = [ theta_a, theta_b, theta_c, theta_d, t_ab, t_bc, t_cd, phase_rel ]
-%   Ex.: x = [ pi/2 -pi/2 pi/2 -pi/2 15 270 15 ];
+%   Ex.: x = [ pi/2 -pi/2 pi/2 -pi/2 15 270 15 pi ];
 
 % Posição dos planetas
 phase_a = x(1);
@@ -21,18 +21,18 @@ M = @(a)[ cos(a)  sin(a)  0;
           -sin(a) cos(a)  0;
           0       0       1
         ];                  % Matriz de rotação
-deltaV = zeros(4,1);        % Custo total [|V_a|, |V_b|, |V_c|, |V_d|]
+deltaV = zeros(4,1);        % Matriz de custo [|V_a|, |V_b|, |V_c|, |V_d|]
 
 % Carrega dados de referência
 dados;
 
 % Em relação à Terra
-r_a_terra = r_ta * base*M(phase_a);  % Definida em projeto
-r_b_terra = r_tb * base*M(phase_b);  % SOI da Terra
+r_a_terra = R_oe_terra * base * M(phase_a);  % Definida em projeto
+r_b_terra = R_soi_terra * base * M(phase_b);  % SOI da Terra
 
 % Em relação à Marte
-r_c_marte = r_mc * base*M(phase_c);  % SOI de Marte
-r_d_marte = r_md * base*M(phase_d);  % Definida em projeto
+r_c_marte = R_oe_marte * base * M(phase_c);  % SOI de Marte
+r_d_marte = R_soi_marte * base * M(phase_d);  % Definida em projeto
 
 % Posições e velocidades dos planetas em relacao ao Sol
 phase_terra = -pi/2;
@@ -55,10 +55,10 @@ if (norm(v_a_2 - v_a_1) > norm(-v_a_2 - v_a_1))
     v_a_2= -v_a_1;
 end
 deltaV(1) = norm(v_a_2 - v_a_1);
-v_b_1 = V2 + v_terra_sol;  % V em rel ao Sol
 
 % Transferência SOI(Terra)-SOI(Marte)
-% Em torno do Sol
+% Mudança de refencial: Terra -> Sol
+v_b_1 = V2 + v_terra_sol;  % V em rel ao Sol
 r_b_sol = r_b_terra + r_terra_sol;
 r_c_sol = r_c_marte + r_marte_sol;
 
@@ -69,10 +69,11 @@ GM = mi_sol;
 [V1, V2, extremal_distances, exitflag] = lambert(r1, r2, t_voo, 0, GM);
 v_b_2 = V1;
 deltaV(2) = norm(v_b_2 - v_b_1);
-v_c_1 = V2 - v_marte_sol;  % V em rel a Marte
+
 
 % Transferência SOI(Marte)-Marte
-% Em torno de Marte
+% Mudança de referencial: Sol -> Marte
+v_c_1 = V2 - v_marte_sol;  % V em rel a Marte
 r1 = r_c_marte;
 r2 = r_d_marte;
 t_voo = t_cd;
