@@ -18,6 +18,7 @@ if length(hyperparams.lb) ~= length(hyperparams.ub)
 end
 
 %% function initialize_particles(num_particles, lb, ub):
+clear particles
 for i = 1:hyperparams.num_particles
     particles(i) = Particle;
     % random_uniform here operates on arrays

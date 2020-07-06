@@ -2,12 +2,45 @@
 % This script run all rotines needed to provide a minimal coust estimation
 % for a Earth-Mars transfer throught a PSO algorithm paremeter optimization
 
+format short g
+
 %% Inputs
 % Define optimization parameters
-max_iteration = 1000;                                % Iteractions to run
-num_particles = 100;                                % Particles in swarm
-lower_boundary = [0 0 0 0 0 0 0 0];                   % Lower boundary
-upper_boundary = [2*pi 2*pi 2*pi 2*pi 30 365 30 2*pi];   % Upper boundary
+max_iteration = 100;                                  % Iteractions to run
+num_particles = 100;                                   % Particles in swarm
+
+clear lower_boundary upper_boundary
+lower_boundary.theta_oe_terra = pi/2;
+upper_boundary.theta_oe_terra = 3*pi/2;
+lower_boundary.theta_soi_terra = -pi/2;
+upper_boundary.theta_soi_terra = pi/2;
+
+lower_boundary.theta_soi_venus = 0;
+upper_boundary.theta_soi_venus = 2*pi;
+lower_boundary.rp = 0;
+upper_boundary.rp = 1;
+lower_boundary.phase_venus = 0;
+upper_boundary.phase_venus = 2*pi;
+
+lower_boundary.theta_soi_marte = 0;
+upper_boundary.theta_soi_marte = 2*pi;
+lower_boundary.theta_oe_marte = 0;
+upper_boundary.theta_oe_marte = 2*pi;
+lower_boundary.phase_marte = 0;
+upper_boundary.phase_marte = 2*pi;
+
+% Tempos de transferência
+lower_boundary.t_oe_terra_soi_terra = 2;
+upper_boundary.t_oe_terra_soi_terra = 15;
+lower_boundary.t_soi_terra_soi_venus = 30;
+upper_boundary.t_soi_terra_soi_venus = 180;
+lower_boundary.t_soi_venus_soi_marte = 150;
+upper_boundary.t_soi_venus_soi_marte = 400;
+lower_boundary.t_soi_marte_oe_marte = 0.5;
+upper_boundary.t_soi_marte_oe_marte = 15;
+
+lower_boundary = struct_2_boundary(lower_boundary);
+upper_boundary = struct_2_boundary(upper_boundary); % Upper boundary
 
 %% Optimization
 % Run optimization
@@ -32,22 +65,7 @@ data_to_store = [
     execution_time
 ];
 T_to_append = array2table(...
-    data_to_store, ...
-    'VariableNames', ...
-        { ...
-        'total_coust', ...
-        'theta_a', ...
-        'theta_b', ...
-        'theta_c', ...
-        'theta_d', ...
-        't_ab', ...
-        't_bc', ...
-        't_cd', ...
-        'theta_rel', ...
-        'num_particles', ...
-        'max_iterations',...
-        'execution_time'...
-        } ...
+    data_to_store...
 );
 
 output_file_name = 'results.txt';
