@@ -1,55 +1,65 @@
 % Vetor de estado que caracteriza nossa transferencia de interesse
 %x = [ 2.6147    6.2832    3.0095    0.8353 3.09 261.96 2.28];
-x = [ 2.3836    4.4055    3.1416         0    1.1648  356.7621   33.7409         0];
-
+x = best_global;
 funcao_custo;
 
 UA = 1.496e8;
 
-% Órbita AB: Fuga da Terra
-[x,y] = definir_orbita_cartesiana(r_a_terra, v_a_2, mi_terra);
+% Órbita BC: Transferência entre esferas de influência Terra - Venus
+disp("Velocidade de saída da SOI da Terra: ");
+disp(banco_velocidades_saida(2,:));
+disp("Velocidade de chegada na SOI de Venus: ");
+disp(banco_velocidades_chegada(2,:));
+[x,y] = definir_orbita_cartesiana(...
+    r_soi_terra + r_terra_sol, ...
+    banco_velocidades_saida(2,:), ...
+    mi_sol);
 figure;
 legenda = string();
-legenda(end+1) = plotar([0,0], "Terra");
-legenda(end+1) = plotar(r_a_terra/R_t, "A");
-legenda(end+1) = plotar(r_b_terra/R_t, "B");
-legenda(end+1) = plotar([x' y']/R_t, "Trajetória", '-');
-grid on;
-axis equal
-legend(legenda(2:end));
-xlabel('x [raios terrestres]');
-ylabel('y [raios terrestres]');
+legenda(end+1) = plotar_ponto([0,0], "Sol");
+legenda(end+1) = plotar_ponto(r_terra_sol/UA, "Terra");
+legenda(end+1) = plotar_ponto((r_soi_terra + r_terra_sol)/UA, "B");
+legenda(end+1) = plotar_ponto(r_venus_sol/UA, "Venus");
+legenda(end+1) = plotar_ponto((r_soi_venus + r_venus_sol)/UA, "C");
+legenda(end+1) = plotar_ponto([x' y']/UA, "Trajetória", '-');
 
-% Órbita BC: Transferência entre esferas de influência
-[x,y] = definir_orbita_cartesiana(r_b_sol, v_b_2, mi_sol);
-figure;
-legenda = string();
-legenda(end+1) = plotar([0,0], "Sol");
-legenda(end+1) = plotar(r_terra_sol/UA, "Terra");
-legenda(end+1) = plotar(r_b_sol/UA, "B");
-legenda(end+1) = plotar(r_marte_sol/UA, "Marte");
-legenda(end+1) = plotar(r_c_sol/UA, "C");
-legenda(end+1) = plotar([x' y']/UA, "Trajetória", '-');
+% Órbita CD: Transferência entre esferas dentro da influência de Vênus
+[x,y] = definir_orbita_cartesiana(...
+    r_soi_venus, ...
+    banco_velocidades_saida(3,:), ...
+    mi_venus);
+legenda(end+1) = plotar_ponto((r_soi_venus * M(deflexao_venus) + r_venus_sol)/UA, "D");
+legenda(end+1) = plotar_ponto(([x' y'] + r_venus_sol(1:2))/UA, "Trajetória", '-');
+
+% Órbita DE: Transferência SOI(Venus)-SOI(Marte)
+[x,y] = definir_orbita_cartesiana(...
+    r_soi_venus * M(deflexao_venus) + r_venus_sol, ...
+    banco_velocidades_saida(4,:), ...
+    mi_sol);
+legenda(end+1) = plotar_ponto((r_soi_marte + r_marte_sol)/UA, "E");
+legenda(end+1) = plotar_ponto(([x' y'])/UA, "Trajetória", '-');
+legenda(end+1) = plotar_ponto(r_marte_sol/UA, "Marte");
+
+
+% Órbita DE: Transferência SOI(Marte)-OE(Marte)
+[x,y] = definir_orbita_cartesiana(...
+    r_soi_marte, ...
+    banco_velocidades_saida(5,:), ...
+    mi_marte);
+legenda(end+1) = plotar_ponto(([x' y'] + r_marte_sol(1:2))/UA, "Trajetória", '-');
+legenda(end+1) = plotar_ponto((r_marte_sol + r_oe_marte)/UA, "F");
+
 grid on;
 axis equal
 legend(legenda(2:end));
 xlabel('x [UA]');
 ylabel('y [UA]');
 
-% Órbita CD: Captura gravitacional
-[x,y] = definir_orbita_cartesiana(r_c_marte, v_c_2, mi_marte);
-figure;
-legenda = string();
-legenda(end+1) = plotar([0,0], "Marte");
-legenda(end+1) = plotar(r_c_marte/R_m, "C");
-%legenda(end+1) = plotar(r_d_marte/R_m, "D");  % Está dando problema
-legenda(end+1) = plotar([r_d_marte(1), -r_d_marte(2)]/R_m, "D");
-legenda(end+1) = plotar([x' y']/R_m, "Trajetória", '-');
-grid on;
-axis equal
-legend(legenda(2:end));
-xlabel('x [raios marcianos]');
-ylabel('y [raios marcianos]');
+plotar_vetor(banco_velocidades_saida(2,:), (r_soi_terra + r_terra_sol)/UA, 0.01);
+plotar_vetor(banco_velocidades_saida(3,:), (r_soi_venus + r_venus_sol)/UA, 0.01);
+plotar_vetor(v_venus_sol, (r_venus_sol)/UA, 0.01);
+plotar_vetor(banco_velocidades_saida(4,:), (r_soi_venus * M(deflexao_venus) + r_venus_sol)/UA, 0.01);
+plotar_vetor(banco_velocidades_chegada(4,:), (r_soi_marte + r_marte_sol)/UA, 0.01);
 
 
 function [x,y] = definir_orbita_cartesiana(r_,v_,mi_)

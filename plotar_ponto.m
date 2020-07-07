@@ -1,4 +1,4 @@
-function value = plotar(r, legenda, mark_)
+function value = plotar_ponto(r, legenda, mark_)
 if nargin < 3
     mark = 'x';
     lineWidth = 2;

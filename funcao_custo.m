@@ -3,6 +3,10 @@
 %   Considera-se 4 pontos principais, com 3 orbitas coladas, portanto
 %   Ex.: x = [  ];
 
+banco_velocidades_chegada = [];
+banco_velocidades_saida = [];
+banco_velocidades_inicial = [];
+
 % Carrega dados de referência
 dados;
 
@@ -12,8 +16,8 @@ theta_soi_terra = x(2);
 phase_terra = 0;
 
 theta_soi_venus = x(3);
-r_p = x(4)*R_soi_venus;
-phase_venus = x(5); 
+deflexao_venus = x(4);
+phase_venus = x(5);
 
 theta_soi_marte = x(6);
 theta_oe_marte = x(7);
@@ -22,15 +26,17 @@ phase_marte = x(8);
 % Tempos de transferência
 t_oe_terra_soi_terra = x(9);
 t_soi_terra_soi_venus = x(10);
-t_soi_venus_soi_marte = x(11);
-t_soi_marte_oe_marte = x(12);
+t_soi_venus_soi_venus = x(11);
+t_soi_venus_soi_marte = x(12);
+t_soi_marte_oe_marte = x(13);
 
 base = [1 0 0];             % Vetor de referência da base canônica de R3
 M = @(a)[ cos(a)  sin(a)  0;
           -sin(a) cos(a)  0;
           0       0       1
         ];                  % Matriz de rotação
-deltaV = zeros(5,1);        % Matriz de custo [|V_a|, |V_b|, |V_c|, |V_d|]
+
+deltaV = [];        % Matriz de custo [|V_a|, |V_b|, |V_c|, |V_d|]
 
 % Em relação à Terra
 r_oe_terra = R_soi_terra * base * M(theta_oe_terra);  % Definida em projeto
@@ -51,7 +57,7 @@ v_terra_sol = (mi_sol/norm(r_terra_sol))^(0.5)*base*M(phase_terra + pi/2);
 v_venus_sol = (mi_sol/norm(r_venus_sol))^(0.5)*base*M(phase_venus + pi/2);
 v_marte_sol = (mi_sol/norm(r_marte_sol))^(0.5)*base*M(phase_marte + pi/2);
 
-%% Transferência Terra - SOI(Terra)
+%% 1. Transferência Terra - SOI(Terra)
 % Em torno da Terra
 r_saida = r_oe_terra;
 r_chegada = r_soi_terra;
@@ -62,9 +68,12 @@ v_inicial = (mi_terra/norm(r_saida))^(0.5)*[-sin(theta_oe_terra) cos(theta_oe_te
 if (norm(v_saida - v_inicial) > norm(-v_saida - v_inicial))
     v_inicial = -v_inicial;
 end
-deltaV(1) = norm(v_saida - v_inicial);
+deltaV(end+1) = norm(v_saida - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_saida;
 
-%% Transferência SOI(Terra)-SOI(Vênus)
+%% 2. Transferência SOI(Terra)-SOI(Vênus)
 % Mudança de referencial: Terra -> Sol
 v_inicial = v_chegada + v_terra_sol;  % V espaçonave em rel ao Sol
 r_saida = r_soi_terra + r_terra_sol;
@@ -72,31 +81,39 @@ r_chegada = r_soi_venus + r_venus_sol;
 t_voo = t_soi_terra_soi_venus;
 GM = mi_sol;
 [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-deltaV(2) = norm(v_saida - v_inicial);
+deltaV(end+1) = norm(v_saida - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_saida;
 
-%% Swing by por Vênus
+%% 3. Swing by por Vênus
 % Mudança de referencial: Sol -> Vênus
 v_inicial = v_chegada - v_venus_sol;  % V espaçonave em rel a Venus
+r_saida = r_soi_venus;
+r_chegada = r_soi_venus * M(deflexao_venus);
+t_voo = t_soi_venus_soi_venus;
+GM = mi_venus;
+[v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
+deltaV(end+1) = norm(v_saida - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_saida;
 
-% Não tem propulsão, apenas deflexão de órbita
-deflexao = asin(1/(1 + r_p * norm(v_inicial) / mi_venus));
-sin_deflexao = 1/(1 + r_p * norm(v_inicial) / mi_venus);
-assistencia = 2 * v_inicial * sin_deflexao;
-v_saida = v_inicial + v_venus_sol;    % V espaçonave em rel ao Sol
-v_chegada = v_saida + assistencia;    % V espaçonave em rel ao Sol
 
-
-%% Transferência SOI(Venus)-SOI(Marte)
+%% 4. Transferência SOI(Venus)-SOI(Marte)
 % Mudança de referencial: Vênus -> Sol
-v_inicial = v_chegada;                % V espaçonave em rel ao Sol
-r_saida = r_soi_venus + r_venus_sol;
+v_inicial = v_chegada + v_venus_sol;  % V espaçonave em rel ao Sol
+r_saida = r_soi_venus * M(deflexao_venus) + r_venus_sol;
 r_chegada = r_soi_marte + r_marte_sol;
 t_voo = t_soi_venus_soi_marte;
 GM = mi_sol;
 [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-deltaV(3) = norm(v_saida - v_inicial);
+deltaV(end+1) = norm(v_saida - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_saida;
 
-%% Transferência SOI(Marte)-Marte
+%% 5. Transferência SOI(Marte)-Marte
 % Mudança de referencial: Sol -> Marte
 v_inicial = v_chegada - v_marte_sol;  % V em rel a Marte
 r_saida = r_soi_marte;
@@ -104,15 +121,21 @@ r_chegada = r_oe_marte;
 t_voo = t_soi_marte_oe_marte;
 GM = mi_marte;
 [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-deltaV(4) = norm(v_saida - v_inicial);
+deltaV(end+1) = norm(v_saida - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_saida;
 
-%% Órbita estacionamento Marte
+%% 6. Órbita estacionamento Marte
 v_inicial = v_chegada;
 v_final = (mi_marte/norm(r_chegada))^(0.5)*[-sin(theta_oe_marte) cos(theta_oe_marte) 0];
 if (norm(v_final - v_inicial) > norm(-v_final - v_inicial))
     v_final = -v_final;
 end
-deltaV(5) = norm(v_final - v_inicial);
+deltaV(end+1) = norm(v_final - v_inicial);
+banco_velocidades_chegada(end+1,:) = v_chegada;
+banco_velocidades_inicial(end+1,:) = v_inicial;
+banco_velocidades_saida(end+1,:) = v_final;
 
 %% Cálculo custo final
 value = sum(deltaV);
