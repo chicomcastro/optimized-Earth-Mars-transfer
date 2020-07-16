@@ -4,16 +4,21 @@
 
 format short g
 
+%% Simulation parameters
+global venus_swing_by
+venus_swing_by = 1;
+simula_progredindo = 1;
+
 %% Inputs
 % Define optimization parameters
 max_iteration = 1000;                                  % Iteractions to run
-num_particles = 1000;                                   % Particles in swarm
+num_particles = 100;                                  % Particles in swarm
 
 clear lower_boundary upper_boundary
-lower_boundary.theta_oe_terra = pi/2;
-upper_boundary.theta_oe_terra = 3*pi/2;
-lower_boundary.theta_soi_terra = -pi/2;
-upper_boundary.theta_soi_terra = pi/2;
+lower_boundary.theta_oe_terra = 0;
+upper_boundary.theta_oe_terra = 2*pi;
+lower_boundary.theta_soi_terra = 0;
+upper_boundary.theta_soi_terra = 2*pi;
 
 lower_boundary.theta_soi_venus = 0;
 upper_boundary.theta_soi_venus = 2*pi;
@@ -46,50 +51,61 @@ upper_boundary = struct_2_boundary(upper_boundary); % Upper boundary
 
 %% Optimization
 % Run optimization
+if venus_swing_by swing_by = "com"; else swing_by = "sem"; end
+if simula_progredindo progressao = "com"; else progressao = "sem"; end
+disp("<<< Simulação " + swing_by + " swing-by " + progressao + " progressão >>>");
 tentativa = 0;
 while true
     disp("Tentativa: " + tentativa);
-tic
-pso;
-execution_time = toc;
-disp("Elapsed time was " + execution_time + "seconds.")
+    disp("Rodando para num_particles = " + num_particles);
+    tic
+    pso;
+    execution_time = toc;
+    disp("Elapsed time was " + execution_time + "seconds.")
 
-%% Results
-% Print bests results
-disp("Best global values: ");
-disp(best_global);
-disp("Minimal coust found: " + custo(best_global) + " km/s");
+    %% Results
+    % Print bests results
+    disp("Best global values: ");
+    disp(best_global);
+    disp("Minimal coust found: " + custo(best_global) + " km/s");
 
-%% Storage
-% Create a table with the data and variable names to store
-data_to_store = [
-    custo(best_global), ...
-    best_global(:)', ...
-    hyperparams.num_particles, ...
-    max_iteration, ...
-    execution_time
-];
-T_to_append = array2table(...
-    data_to_store...
-);
+    %% Storage
+    % Create a table with the data and variable names to store
+    data_to_store = [
+        custo(best_global), ...
+        best_global(:)', ...
+        num_particles, ...
+        max_iteration, ...
+        execution_time
+    ];
+    T_to_append = array2table(...
+        data_to_store...
+    );
+    %% Load current existing data
+    if venus_swing_by == 1
+        data_title = "-swing-by";
+    else
+        data_title = "-direct-transfer";
+    end
 
-output_file_name = 'results.txt';
-if exist('T','var') == 1
-    T = [T; T_to_append];
-elseif exist(output_file_name, 'file') == 2
-    T = readtable(output_file_name);
-else
-    T = T_to_append;
-end
+    output_file_name = "results" + data_title + ".txt";
 
-% Write data to text file
-writetable(T, output_file_name);
+    if exist('T','var') == 1
+        T = [T; T_to_append];
+    elseif exist(output_file_name, 'file') == 2
+        T = readtable(output_file_name);
+    else
+        T = T_to_append;
+    end
 
-%% Images
-% call Plotter for x = best_global
-tentativa = tentativa + 1;
-if tentativa > 10
-    num_particles = num_particles * 10;
-    tentativa = 0;
-end
+    %% Write data to text file
+    writetable(T, output_file_name);
+
+    %% Images
+    % call Plotter for x = best_global
+    tentativa = tentativa + 1;
+    if tentativa > 100 && simula_progredindo == 1
+        num_particles = num_particles * 10;
+        tentativa = 0;
+    end
 end

@@ -12,10 +12,20 @@ phi = theta - acos((1-a*(1-e^2)/norm(r))/e);
 
 conica = @(nu) p./(1-e*cos(nu-phi));
 
-% fazer r x r x v para analisar phase da orbita (phi = phi + pi)
-
+% fazer r x v x r para analisar phase da orbita (phi = phi + pi)
+b1 = cross(cross(r,v), r)/norm(r)^2/norm(v);
+b2 = v/norm(v);
+alpha = ang2vectors(b1, b2);
+if alpha > pi/2
+    phi = pi + phi;
+    conica = @(nu) p./(1-e*cos(nu-phi));
+end
 end
 
 function theta = ang2vectors(v_a_1,v_a_2)
 theta = acos(dot(v_a_1,v_a_2)/norm(v_a_1)/norm(v_a_2));
+
+if theta > pi
+    theta = 2*pi - theta;
+end
 end
