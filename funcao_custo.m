@@ -71,7 +71,7 @@ t_voo = t_oe_terra_soi_terra;
 GM = mi_terra;
 [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
 v_inicial = (mi_terra/norm(r_saida))^(0.5)*base*M(theta_oe_terra + pi/2);
-if (norm(v_saida - v_inicial) > norm(-v_saida - v_inicial))
+if (norm(v_saida - v_inicial) > norm(v_saida + v_inicial))
     v_inicial = -v_inicial;
 end
 deltaV(end+1) = norm(v_saida - v_inicial);

@@ -4,7 +4,7 @@ format shortg
 x = best_global;
 funcao_custo;
 
-plot_v = 0;
+plot_v = 1;
 plot_info = 1;
 
 UA = 1.496e8;
@@ -12,16 +12,16 @@ UA = 1.496e8;
 figure;
 legenda = string();
 legenda(end+1) = plotar_ponto([0,0], "Sol",  'd');
-legenda(end+1) = plotar_ponto(r_terra_sol/UA, "Terra",  'd');
-legenda(end+1) = plotar_ponto(r_venus_sol/UA, "Venus",  'd');
-legenda(end+1) = plotar_ponto(r_marte_sol/UA, "Marte",  'd');
+legenda(end+1) = plotar_ponto(r_terra_sol/UA, "Terra",  'o');
+legenda(end+1) = plotar_ponto(r_venus_sol/UA, "Venus",  'o');
+legenda(end+1) = plotar_ponto(r_marte_sol/UA, "Marte",  'o');
 
 [x,y] = definir_orbita_cartesiana(...
-    r_oe_terra + r_terra_sol, ...
+    r_oe_terra, ...
     banco_velocidades_saida(1,:), ...
     mi_terra);
 legenda(end+1) = plotar_ponto((r_oe_terra + r_terra_sol)/UA, "A");
-legenda(end+1) = plotar_ponto([x' y']/UA, "Trajetória T-T", '-');
+legenda(end+1) = plotar_ponto(([x' y'] + r_terra_sol(1:2))/UA, "Trajetória T-T", '-');
 legenda(end+1) = plotar_ponto((r_soi_terra + r_terra_sol)/UA, "B");
 
 % Órbita BC: Transferência entre esferas de influência Terra - Venus
@@ -69,11 +69,21 @@ xlabel('x [UA]');
 ylabel('y [UA]');
 
 if plot_v == 1
-    plotar_vetor(banco_velocidades_saida(2,:), (r_soi_terra + r_terra_sol)/UA, 0.01);
-    plotar_vetor(banco_velocidades_saida(3,:), (r_soi_venus + r_venus_sol)/UA, 0.01);
+    plotar_vetor(v_terra_sol, (r_terra_sol)/UA, 0.01);
     plotar_vetor(v_venus_sol, (r_venus_sol)/UA, 0.01);
+    plotar_vetor(v_marte_sol, (r_marte_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(1,:), (r_oe_terra + r_terra_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_saida(1,:), (r_oe_terra + r_terra_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(2,:), (r_soi_terra + r_terra_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_saida(2,:), (r_soi_terra + r_terra_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(3,:), (r_soi_venus + r_venus_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_saida(3,:), (r_soi_venus + r_venus_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(4,:), (r_soi_venus * M(deflexao_venus) + r_venus_sol)/UA, 0.01);
     plotar_vetor(banco_velocidades_saida(4,:), (r_soi_venus * M(deflexao_venus) + r_venus_sol)/UA, 0.01);
-    plotar_vetor(banco_velocidades_chegada(4,:), (r_soi_marte + r_marte_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(5,:), (r_soi_marte + r_marte_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_saida(5,:), (r_soi_marte + r_marte_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_inicial(6,:), (r_oe_marte + r_marte_sol)/UA, 0.01);
+    plotar_vetor(banco_velocidades_saida(6,:), (r_oe_marte + r_marte_sol)/UA, 0.01);
 end
 
 if plot_info == 1

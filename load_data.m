@@ -1,4 +1,8 @@
 %% Load current existing data
+if exist('venus_swing_by','var') == 0
+    venus_swing_by = 1;
+end
+
 if venus_swing_by == 1
     data_title = "-swing-by";
 else

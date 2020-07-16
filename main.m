@@ -11,7 +11,7 @@ simula_progredindo = 1;
 
 %% Inputs
 % Define optimization parameters
-max_iteration = 1000;                                  % Iteractions to run
+max_iteration = 100;                                  % Iteractions to run
 num_particles = 100;                                  % Particles in swarm
 
 clear lower_boundary upper_boundary
@@ -35,17 +35,17 @@ lower_boundary.phase_marte = 0;
 upper_boundary.phase_marte = 2*pi;
 
 % Tempos de transferência
-lower_boundary.t_oe_terra_soi_terra = 2;
-upper_boundary.t_oe_terra_soi_terra = 30;
-lower_boundary.t_soi_terra_soi_venus = 15;
+lower_boundary.t_oe_terra_soi_terra = 0.25;
+upper_boundary.t_oe_terra_soi_terra = 10;
+lower_boundary.t_soi_terra_soi_venus = 30;
 upper_boundary.t_soi_terra_soi_venus = 180;
-lower_boundary.t_soi_venus_soi_venus = 0;
+lower_boundary.t_soi_venus_soi_venus = 0.25;
 upper_boundary.t_soi_venus_soi_venus = 30;
-lower_boundary.t_soi_venus_soi_marte = 30;
-upper_boundary.t_soi_venus_soi_marte = 300;
-lower_boundary.t_soi_marte_oe_marte = 0.5;
-upper_boundary.t_soi_marte_oe_marte = 30;
-
+lower_boundary.t_soi_venus_soi_marte = 60;
+upper_boundary.t_soi_venus_soi_marte = 360;
+lower_boundary.t_soi_marte_oe_marte = 0.25;
+upper_boundary.t_soi_marte_oe_marte = 10;
+%%
 lower_boundary = struct_2_boundary(lower_boundary);
 upper_boundary = struct_2_boundary(upper_boundary); % Upper boundary
 
@@ -104,7 +104,7 @@ while true
     %% Images
     % call Plotter for x = best_global
     tentativa = tentativa + 1;
-    if tentativa > 100 && simula_progredindo == 1
+    if tentativa > 10 && simula_progredindo == 1
         num_particles = num_particles * 10;
         tentativa = 0;
     end
