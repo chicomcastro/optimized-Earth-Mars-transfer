@@ -6,7 +6,7 @@ format short g
 
 %% Simulation parameters
 global venus_swing_by
-venus_swing_by = 1;
+venus_swing_by = 0;
 simula_progredindo = 1;
 
 %% Inputs
@@ -15,36 +15,24 @@ max_iteration = 100;                                  % Iteractions to run
 num_particles = 100;                                  % Particles in swarm
 
 clear lower_boundary upper_boundary
-lower_boundary.theta_oe_terra = 0;
-upper_boundary.theta_oe_terra = 2*pi;
-lower_boundary.theta_soi_terra = 0;
-upper_boundary.theta_soi_terra = 2*pi;
-
-lower_boundary.theta_soi_venus = 0;
-upper_boundary.theta_soi_venus = 2*pi;
-lower_boundary.deflexao_venus = 0;
-upper_boundary.deflexao_venus = 2*pi;
 lower_boundary.phase_venus = 0;
 upper_boundary.phase_venus = 2*pi;
-
-lower_boundary.theta_soi_marte = 0;
-upper_boundary.theta_soi_marte = 2*pi;
-lower_boundary.theta_oe_marte = 0;
-upper_boundary.theta_oe_marte = 2*pi;
 lower_boundary.phase_marte = 0;
 upper_boundary.phase_marte = 2*pi;
 
 % Tempos de transferência
-lower_boundary.t_oe_terra_soi_terra = 0.25;
-upper_boundary.t_oe_terra_soi_terra = 10;
-lower_boundary.t_soi_terra_soi_venus = 30;
-upper_boundary.t_soi_terra_soi_venus = 180;
-lower_boundary.t_soi_venus_soi_venus = 0.25;
-upper_boundary.t_soi_venus_soi_venus = 30;
-lower_boundary.t_soi_venus_soi_marte = 60;
-upper_boundary.t_soi_venus_soi_marte = 360;
-lower_boundary.t_soi_marte_oe_marte = 0.25;
-upper_boundary.t_soi_marte_oe_marte = 10;
+% Com swing by
+lower_boundary.t_terra_venus = 30;
+upper_boundary.t_terra_venus = 180;
+lower_boundary.t_venus_marte = 30;
+upper_boundary.t_venus_marte = 240;
+
+lower_boundary.rp = 0.05;
+upper_boundary.rp = 1;
+
+% Sem swing by
+lower_boundary.t_terra_marte = 120;
+upper_boundary.t_terra_marte = 360;
 %%
 lower_boundary = struct_2_boundary(lower_boundary);
 upper_boundary = struct_2_boundary(upper_boundary); % Upper boundary
@@ -82,6 +70,7 @@ while true
         data_to_store...
     );
     %% Load current existing data
+    
     if venus_swing_by == 1
         data_title = "-swing-by";
     else

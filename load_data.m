@@ -25,4 +25,4 @@ S = sortrows(T, 1);
 %%
 disp("Custo total: " + table2array(S(1,1)));
 loaded_data = table2array(S(1,:));
-best_global = loaded_data(2:14);
+best_global = loaded_data(2:5);
