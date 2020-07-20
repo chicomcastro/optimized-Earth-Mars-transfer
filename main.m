@@ -15,10 +15,25 @@ max_iteration = 100;                                  % Iteractions to run
 num_particles = 100;                                  % Particles in swarm
 
 clear lower_boundary upper_boundary
+% Posição dos planetas
 lower_boundary.phase_venus = 0;
 upper_boundary.phase_venus = 2*pi;
-lower_boundary.phase_marte = 0;
-upper_boundary.phase_marte = 2*pi;
+lower_boundary.phase_marte = pi;
+upper_boundary.phase_marte = pi + pi/4;
+
+% Impulsos de saída e de chegada
+
+lower_boundary.impulso_sai_terra_magnitude = 0;
+upper_boundary.impulso_sai_terra_magnitude = 10;
+
+lower_boundary.impulso_sai_terra_angulo = 0;
+upper_boundary.impulso_sai_terra_angulo = 2*pi;
+
+lower_boundary.impulso_chega_marte_magnitude = 0;
+upper_boundary.impulso_chega_marte_magnitude = 10;
+
+lower_boundary.impulso_chega_marte_angulo = 0;
+upper_boundary.impulso_chega_marte_angulo = 2*pi;
 
 % Tempos de transferência
 % Com swing by

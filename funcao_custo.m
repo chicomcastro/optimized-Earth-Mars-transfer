@@ -3,29 +3,12 @@
 %   Considera-se 4 pontos principais, com 3 orbitas coladas, portanto
 %   Ex.: x = [  ];
 
-global venus_swing_by
+%% Inicializações
+global venus_swing_by parametro
+parametro = 0;
 banco_velocidades_chegada = [];
 banco_velocidades_saida = [];
 banco_velocidades_inicial = [];
-
-% Carrega dados de referência
-dados;
-
-% Posição dos planetas
-phase_terra = 0;
-phase_marte = x(1);
-
-if venus_swing_by == 1
-    phase_venus = x(2);
-    % Tempos de transferência
-    t_terra_venus = x(3);
-    t_venus_marte = x(4);
-    % Parâmetros do swingby
-    rp = x(5) * R_soi_venus;
-else
-    phase_venus = 0;
-    t_terra_marte = x(2);
-end
 
 base = [1 0 0];             % Vetor de referência da base canônica de R3
 M = @(a)[ cos(a)  sin(a)  0;
@@ -35,6 +18,39 @@ M = @(a)[ cos(a)  sin(a)  0;
 
 deltaV = [];                % Matriz de custo (|V_i|)_i
 
+% Carrega dados de referência
+dados;
+
+%% Parâmetros
+% Posição dos planetas
+phase_terra = 0;
+phase_marte = pega_parametro(x);
+
+if venus_swing_by == 1
+    phase_venus = pega_parametro(x);
+    % Tempos de transferência
+    t_terra_venus = pega_parametro(x);
+    t_venus_marte = pega_parametro(x);
+    % Parâmetros do swingby
+    rp = pega_parametro(x) * R_soi_venus;
+else
+    phase_venus = 0;
+    t_terra_marte = pega_parametro(x);
+end
+
+% Delta Velocidade de impulsão para sair da Terra
+% Em relação à Terra
+impulso_sai_terra_magnitude = pega_parametro(x);
+impulso_sai_terra_angulo = pega_parametro(x);
+v_sai_terra = impulso_sai_terra_magnitude * base*M(impulso_sai_terra_angulo);
+
+% Delta Velocidade de impulsão para chegar em Marte
+% Em relação à Marte
+impulso_chega_marte_magnitude = pega_parametro(x);
+impulso_chega_marte_angulo = pega_parametro(x);
+v_chega_marte = impulso_chega_marte_magnitude * base*M(impulso_chega_marte_angulo);
+
+%% Definições base
 % Posições e velocidades dos planetas em relacao ao Sol
 r_terra_sol = r_st * base*M(phase_terra);
 r_venus_sol = r_sv * base*M(phase_venus);
@@ -48,16 +64,21 @@ omega_terra_sol = omega(r_terra_sol, v_terra_sol);
 omega_venus_sol = omega(r_venus_sol, v_venus_sol);
 omega_marte_sol = omega(r_marte_sol, v_marte_sol);
 
+
+%% Cálculo dos custos
+deltaV(end+1) = norm(v_sai_terra);
+
 if venus_swing_by == 1
     %% 1. Transferência Terra-Vênus
+    % Referencial: Sol
     r_saida = r_terra_sol;
     r_chegada = r_venus_sol;
     omega = omega_terra_sol;
-    v_inicial = cross(omega, r_saida);  % V espaçonave em rel ao Sol
+    v_inicial = cross(omega, r_saida) + v_sai_terra;  % V espaçonave em rel ao Sol
     t_voo = t_terra_venus;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-    deltaV(end+1) = norm(v_saida - v_inicial);
+    deltaV(end+1) = norm(v_saida) - norm(v_inicial);
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_inicial(end+1,:) = v_inicial;
     banco_velocidades_saida(end+1,:) = v_saida;
@@ -102,11 +123,11 @@ if venus_swing_by == 1
     banco_velocidades_saida(end+1,:) = v_saida;
 else
     %% 2. Transferência Terra-Marte
-    % Mudança de referencial: Terra -> Sol
+    % Referencial: Sol
     r_saida = r_terra_sol;
     r_chegada = r_marte_sol;
     omega = omega_terra_sol;
-    v_inicial = cross(omega, r_saida);  % V espaçonave em rel ao Sol
+    v_inicial = cross(omega, r_saida) + v_sai_terra;  % V espaçonave em rel ao Sol
     t_voo = t_terra_marte;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
@@ -117,7 +138,8 @@ else
 end
 
 %% 4. Chegada em Marte
-v_inicial = v_chegada;
+v_inicial = v_chegada + v_chega_marte;
+deltaV(end+1) = norm(v_chega_marte);
 v_final = v_marte_sol;
 deltaV(end+1) = norm(v_final - v_inicial);
 
@@ -126,4 +148,10 @@ value = sum(deltaV);
 
 if (isnan(value))
     value = Inf;
+end
+
+function valor = pega_parametro(x)
+    global parametro;
+    parametro = parametro + 1;
+    valor = x(parametro);
 end
