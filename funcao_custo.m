@@ -38,18 +38,6 @@ else
     t_terra_marte = pega_parametro(x);
 end
 
-% Delta Velocidade de impulsão para sair da Terra
-% Em relação à Terra
-impulso_sai_terra_magnitude = pega_parametro(x);
-impulso_sai_terra_angulo = pega_parametro(x);
-v_sai_terra = impulso_sai_terra_magnitude * base*M(impulso_sai_terra_angulo);
-
-% Delta Velocidade de impulsão para chegar em Marte
-% Em relação à Marte
-impulso_chega_marte_magnitude = pega_parametro(x);
-impulso_chega_marte_angulo = pega_parametro(x);
-v_chega_marte = impulso_chega_marte_magnitude * base*M(impulso_chega_marte_angulo);
-
 %% Definições base
 % Posições e velocidades dos planetas em relacao ao Sol
 r_terra_sol = r_st * base*M(phase_terra);
@@ -66,19 +54,17 @@ omega_marte_sol = omega(r_marte_sol, v_marte_sol);
 
 
 %% Cálculo dos custos
-deltaV(end+1) = norm(v_sai_terra);
 
 if venus_swing_by == 1
     %% 1. Transferência Terra-Vênus
     % Referencial: Sol
     r_saida = r_terra_sol;
     r_chegada = r_venus_sol;
-    omega = omega_terra_sol;
-    v_inicial = cross(omega, r_saida) + v_sai_terra;  % V espaçonave em rel ao Sol
     t_voo = t_terra_venus;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-    deltaV(end+1) = norm(v_saida) - norm(v_inicial);
+    v_inicial = (norm(v_terra_sol) + sqrt(mi_terra/R_oe_terra))*v_saida/norm(v_saida);  % V espaçonave em rel ao Sol
+    deltaV(end+1) = norm(v_saida - v_inicial);
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_inicial(end+1,:) = v_inicial;
     banco_velocidades_saida(end+1,:) = v_saida;
@@ -126,21 +112,24 @@ else
     % Referencial: Sol
     r_saida = r_terra_sol;
     r_chegada = r_marte_sol;
-    omega = omega_terra_sol;
-    v_inicial = cross(omega, r_saida) + v_sai_terra;  % V espaçonave em rel ao Sol
     t_voo = t_terra_marte;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-    deltaV(end+1) = norm(v_saida - v_inicial);
+    
+    v_inicial = sqrt(mi_terra/R_oe_terra);
+    v_inf = v_saida - v_terra_sol;
+    v_final = sqrt(norm(v_inf)^2 + 2*mi_terra/R_oe_terra);
+    
+    deltaV(end+1) = norm(v_final - v_inicial);
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_inicial(end+1,:) = v_inicial;
     banco_velocidades_saida(end+1,:) = v_saida;    
 end
 
 %% 4. Chegada em Marte
-v_inicial = v_chegada + v_chega_marte;
-deltaV(end+1) = norm(v_chega_marte);
-v_final = v_marte_sol;
+v_inicial = norm(v_chegada - v_marte_sol);
+v_final = sqrt(2*mi_marte/R_oe_marte);
+
 deltaV(end+1) = norm(v_final - v_inicial);
 
 %% Cálculo custo final
