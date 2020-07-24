@@ -63,37 +63,27 @@ if venus_swing_by == 1
     t_voo = t_terra_venus;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-    v_inicial = (norm(v_terra_sol) + sqrt(mi_terra/R_oe_terra))*v_saida/norm(v_saida);  % V espaçonave em rel ao Sol
-    deltaV(end+1) = norm(v_saida - v_inicial);
+    
     banco_velocidades_chegada(end+1,:) = v_chegada;
-    banco_velocidades_inicial(end+1,:) = v_inicial;
     banco_velocidades_saida(end+1,:) = v_saida;
-
-    %% 2. Swing by por Vênus
-    % Mudança de referencial: Sol -> Vênus
+    
+    v_inicial = sqrt(mi_terra/R_oe_terra);
+    v_inf = v_saida - v_terra_sol;
+    v_saida = sqrt(norm(v_inf)^2 + 2*mi_terra/R_oe_terra);
+    
+    deltaV(end+1) = norm(v_saida - v_inicial);
+    
+    %% 2. Venus swing by
     omega = omega_venus_sol;
-    v_inicial = v_chegada - cross(omega, r_venus_sol);  % V espaçonave em rel a Venus
+    v_inf = v_chegada - cross(omega, r_venus_sol);  % V espaçonave em rel a Venus
+    
     sin_deflexao_venus = 1/(1 + rp*norm(v_inicial)/mi_venus);
     deflexao_venus = asin(sin_deflexao_venus);
-    v_saida = v_inicial;                                % modelando sem propulsão no swingby
-    v_chegada = v_inicial * M(2*deflexao_venus);
     
-    % Validacao
-    delta_v_swing_by_anal = 2*norm(v_inicial)*sin_deflexao_venus;
-    delta_v_swing_by_comp = norm(v_chegada - v_saida);
-    if delta_v_swing_by_anal - delta_v_swing_by_comp > 1e-1
-        disp(...
-            "Verificar swingby: " +...
-            delta_v_swing_by_anal +...
-            " ~= " +...
-            delta_v_swing_by_comp...
-        );
-    end
+    v_p_versor = v_inf/norm(v_inf)*M(deflexao_venus);
+    v_p = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
     
-    banco_velocidades_chegada(end+1,:) = v_chegada;
-    banco_velocidades_inicial(end+1,:) = v_inicial;
-    banco_velocidades_saida(end+1,:) = v_saida;
-
+    v_chegada = v_p;
 
     %% 3. Transferência Venus-Marte
     % Mudança de referencial: Vênus -> Sol
@@ -103,12 +93,13 @@ if venus_swing_by == 1
     t_voo = t_venus_marte;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
-    deltaV(end+1) = norm(v_saida - v_inicial);
+    
     banco_velocidades_chegada(end+1,:) = v_chegada;
-    banco_velocidades_inicial(end+1,:) = v_inicial;
     banco_velocidades_saida(end+1,:) = v_saida;
+    
+    deltaV(end+1) = norm(v_saida - v_inicial);
 else
-    %% 2. Transferência Terra-Marte
+    %% 1. Transferência Terra-Marte
     % Referencial: Sol
     r_saida = r_terra_sol;
     r_chegada = r_marte_sol;
@@ -126,9 +117,11 @@ else
     banco_velocidades_saida(end+1,:) = v_saida;    
 end
 
-%% 4. Chegada em Marte
-v_inicial = norm(v_chegada - v_marte_sol);
-v_final = sqrt(2*mi_marte/R_oe_marte);
+%% 4/2. Chegada em Marte
+v_inf = v_chegada - v_marte_sol; % v_inf hiperbólica de chegada em marte
+v_p = sqrt(norm(v_inf)^2 + 2*mi_marte/R_oe_marte);
+v_inicial = norm(v_p);
+v_final = sqrt(mi_marte/R_oe_marte); % v_p necessaria para ser capturada
 
 deltaV(end+1) = norm(v_final - v_inicial);
 
