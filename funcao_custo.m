@@ -97,7 +97,11 @@ if venus_swing_by == 1
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_saida(end+1,:) = v_saida;
     
-    deltaV(end+1) = norm(v_saida - v_inicial);
+    v_p_inicial = v_p; % ref em venus
+    v_inf = v_saida - v_venus_sol; % ref em venus
+    v_p_saida = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
+    
+    deltaV(end+1) = norm(v_p_saida - v_p_inicial);
 else
     %% 1. Transferência Terra-Marte
     % Referencial: Sol
