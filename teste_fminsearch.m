@@ -1,4 +1,7 @@
 
+global venus_swing_by
+venus_swing_by = 1;
+
 opts = optimset(...
     'TolFun', 1e-14,...
     'TolX', 1e-14,...
@@ -26,8 +29,12 @@ while itr < 10
     );
 
     %% Load current existing data
-
-    output_file_name = "results_fminsearch.txt";
+    if venus_swing_by == 1
+        data_title = "-swing-by";
+    else
+        data_title = "-direct-transfer";
+    end
+    output_file_name = "results_fminsearch" + data_title + ".txt";
 
     if exist('T_fminsearch','var') == 1
         T_fminsearch = [T_fminsearch; T_to_append];
