@@ -6,7 +6,7 @@ format short g
 
 %% Simulation parameters
 global venus_swing_by
-venus_swing_by = 0;
+venus_swing_by = 1;
 simula_progredindo = 1;
 
 %% Inputs
@@ -28,8 +28,8 @@ upper_boundary.t_terra_venus = 180;
 lower_boundary.t_venus_marte = 30;
 upper_boundary.t_venus_marte = 240;
 
-lower_boundary.rp = 0.05;
-upper_boundary.rp = 1;
+lower_boundary.rp = 0.015;
+upper_boundary.rp = 0.1;
 
 % Sem swing by
 lower_boundary.t_terra_marte = 120;
