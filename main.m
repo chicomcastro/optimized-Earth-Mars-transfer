@@ -8,6 +8,7 @@ format short g
 global venus_swing_by
 venus_swing_by = 1;
 simula_progredindo = 1;
+simula_unique = 1;
 
 %% Inputs
 % Define optimization parameters
@@ -97,5 +98,9 @@ while true
     if tentativa > 10 && simula_progredindo == 1
         num_particles = num_particles * 10;
         tentativa = 0;
+    end
+    
+    if simula_unique == 1
+        break;
     end
 end
