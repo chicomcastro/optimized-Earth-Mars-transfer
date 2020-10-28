@@ -29,8 +29,23 @@ upper_boundary.t_terra_venus = 180;
 lower_boundary.t_venus_marte = 30;
 upper_boundary.t_venus_marte = 240;
 
-lower_boundary.rp = 0.015;
-upper_boundary.rp = 0.1;
+lower_boundary.theta_entrada_venus = 0;
+lower_boundary.R_impulso = 0.15;
+lower_boundary.theta_impulso_r = 0;
+lower_boundary.magnitude_impulso = 0;
+lower_boundary.theta_impulso_v = 0;
+lower_boundary.theta_saida_venus = pi;
+lower_boundary.t_swing_by_start = 0;
+lower_boundary.t_swing_by_end = 0;
+
+upper_boundary.theta_entrada_venus = pi;
+upper_boundary.R_impulso = 0.5;
+upper_boundary.theta_impulso_r = 2*pi;
+upper_boundary.magnitude_impulso = 1;
+upper_boundary.theta_impulso_v = 2*pi;
+upper_boundary.theta_saida_venus = 2*pi;
+upper_boundary.t_swing_by_start = 10;
+upper_boundary.t_swing_by_end = 10;
 
 % Sem swing by
 lower_boundary.t_terra_marte = 120;

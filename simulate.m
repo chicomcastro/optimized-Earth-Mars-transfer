@@ -32,7 +32,14 @@ if venus_swing_by == 1
     t_terra_venus = pega_parametro(x);
     t_venus_marte = pega_parametro(x);
     % Parâmetros do swingby
-    rp = pega_parametro(x) * R_soi_venus;
+    theta_entrada_venus = pega_parametro(x);
+    R_impulso = pega_parametro(x) * R_soi_venus;
+    theta_impulso_r = pega_parametro(x);
+    magnitude_impulso = pega_parametro(x);
+    theta_impulso_v = pega_parametro(x);
+    theta_saida_venus = pega_parametro(x);
+    t_swing_by_start = pega_parametro(x);
+    t_swing_by_end = pega_parametro(x);
 else
     phase_venus = 0;
     t_terra_marte = pega_parametro(x);
@@ -73,23 +80,29 @@ if venus_swing_by == 1
     
     deltaV(end+1) = norm(v_saida - v_inicial);
     
-    %% 2. Venus swing by
-    omega = omega_venus_sol;
-    v_inf = v_chegada - cross(omega, r_venus_sol);  % V espaçonave em rel a Venus
+    %% 2. Venus swing by    
+    % r,v que entra na SOI(Venus)
+    v_entrada = v_chegada - cross(omega_venus_sol, r_venus_sol);  % ref em Vênus
+    r_entrada = R_soi_venus*[1,0,0]*M(theta_entrada_venus);
     
-    sin_deflexao_venus = 1/(1 + rp*norm(v_inicial)/mi_venus);
-    deflexao_venus = asin(sin_deflexao_venus);
+    % r,v que recebe impulso
+    delta_v = magnitude_impulso * theta_impulso_v;
+    deltaV(end+1) = norm(delta_v);
+    r_impulso = R_impulso * [1,0,0]*M(theta_impulso_r);
+    [v_entrada_depois, v_impulso_antes, extremal_distances, exitflag] = lambert(r_entrada, r_impulso, t_swing_by_start, 0, mi_venus);
+    deltaV(end+1) = norm(v_entrada_depois - v_entrada);
+    v_impulso_depois = v_impulso_antes + delta_v;
     
-    v_p_versor = v_inf/norm(v_inf)*M(deflexao_venus);
-    v_p = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
-    
-    v_chegada = v_p;
+    % r,v que sai da SOI
+    r_saida = R_soi_venus*[1,0,0]*M(theta_saida_venus);
+    [v_impulso_saida, v_chegada, extremal_distances, exitflag] = lambert(r_impulso, r_saida, t_swing_by_end, 0, mi_venus);
+    deltaV(end+1) = norm(v_impulso_saida - v_impulso_depois);
 
     %% 3. Transferência Venus-Marte
     % Mudança de referencial: Vênus -> Sol
     r_saida = r_venus_sol;
     r_chegada = r_marte_sol;
-    v_inicial = v_chegada + cross(omega, r_venus_sol);  % V espaçonave em rel ao Sol
+    v_inicial = v_chegada + cross(omega_venus_sol, r_venus_sol);  % V espaçonave em rel ao Sol
     t_voo = t_venus_marte;
     GM = mi_sol;
     [v_saida, v_chegada, extremal_distances, exitflag] = lambert(r_saida, r_chegada, t_voo, 0, GM);
@@ -97,11 +110,7 @@ if venus_swing_by == 1
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_saida(end+1,:) = v_saida;
     
-    v_p_inicial = v_p; % ref em venus
-    v_inf = v_saida - v_venus_sol; % ref em venus
-    v_p_saida = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
-    
-    deltaV(end+1) = norm(v_p_saida - v_p_inicial);
+    deltaV(end+1) = norm(v_saida - v_inicial);
 else
     %% 1. Transferência Terra-Marte
     % Referencial: Sol
