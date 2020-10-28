@@ -81,10 +81,9 @@ while true
 
     output_file_name = "results" + data_title + ".txt";
 
-    if exist('T','var') == 1
-        T = [T; T_to_append];
-    elseif exist(output_file_name, 'file') == 2
+    if exist(output_file_name, 'file') == 2
         T = readtable(output_file_name);
+        T = [T; T_to_append];
     else
         T = T_to_append;
     end
