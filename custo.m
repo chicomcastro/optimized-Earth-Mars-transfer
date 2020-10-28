@@ -6,7 +6,7 @@ function valor = custo(x_)
     %% Custom function to measure cost for parameters on x_
     % Input: x
     % Output: value
-    funcao_custo;
+    simulate;
     
     %%
     valor = value;

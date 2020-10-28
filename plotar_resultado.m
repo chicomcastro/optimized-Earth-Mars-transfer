@@ -2,7 +2,7 @@
 %x = [ 2.6147    6.2832    3.0095    0.8353 3.09 261.96 2.28];
 format shortg
 x = best_global;
-funcao_custo;
+simulate;
 
 plot_v = 0;
 plot_info = 0;
