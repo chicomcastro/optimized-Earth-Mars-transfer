@@ -13,7 +13,7 @@ simula_unique = 1;
 %% Inputs
 % Define optimization parameters
 max_iteration = 100;                                  % Iteractions to run
-num_particles = 100;                                  % Particles in swarm
+num_particles = 1000;                                  % Particles in swarm
 
 clear lower_boundary upper_boundary
 % Posição dos planetas

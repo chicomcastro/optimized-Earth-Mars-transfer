@@ -67,6 +67,8 @@ if venus_swing_by == 1
     banco_velocidades_chegada(end+1,:) = v_chegada;
     banco_velocidades_saida(end+1,:) = v_saida;
     
+    %deltaV(end+1) = norm(v_saida - v_terra_sol);
+    
     v_inicial = sqrt(mi_terra/R_oe_terra);
     v_inf = v_saida - v_terra_sol;
     v_saida = sqrt(norm(v_inf)^2 + 2*mi_terra/R_oe_terra);
@@ -83,7 +85,7 @@ if venus_swing_by == 1
     v_p_versor = v_inf/norm(v_inf)*M(deflexao_venus);
     v_p = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
     
-    v_chegada = v_p;
+    v_chegada = v_inf*M(2*deflexao_venus);  % V espaçonave no final do swing by
 
     %% 3. Transferência Venus-Marte
     % Mudança de referencial: Vênus -> Sol
@@ -101,7 +103,11 @@ if venus_swing_by == 1
     v_inf = v_saida - v_venus_sol; % ref em venus
     v_p_saida = sqrt(norm(v_inf)^2 + 2*mi_venus/(R_v + rp))*v_p_versor;
     
-    deltaV(end+1) = norm(v_p_saida - v_p_inicial);
+    % Impulso no periapsis de Venus durante o swing by
+    %deltaV(end+1) = norm(v_p_saida - v_p_inicial);
+    
+    % Impulso na saída da SOI de Venus após o swing by
+    deltaV(end+1) = norm(v_saida - v_inicial);
 else
     %% 1. Transferência Terra-Marte
     % Referencial: Sol
@@ -128,6 +134,7 @@ v_inicial = norm(v_p);
 v_final = sqrt(mi_marte/R_oe_marte); % v_p necessaria para ser capturada
 
 deltaV(end+1) = norm(v_final - v_inicial);
+%deltaV(end+1) = norm(v_chegada - v_marte_sol);
 
 %% Cálculo custo final
 value = sum(deltaV);
