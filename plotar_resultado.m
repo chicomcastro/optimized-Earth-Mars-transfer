@@ -44,12 +44,27 @@ else
     legenda(end+1) = plotar_ponto([x' y']/UA, "Trajetória T-M", '-');
 end
 
+theta = [0:pi/180:2*pi];
+earth.x = R_earth_sun.*cos(theta)/ud;
+earth.y = R_earth_sun.*sin(theta)/ud;
+earth.z = theta*0/ud;
+mars.x = R_mars_sun.*cos(theta)/ud;
+mars.y = R_mars_sun.*sin(theta)/ud;
+mars.z = theta*0/ud;
+venus.x = R_venus_sun.*cos(theta)/ud;
+venus.y = R_venus_sun.*sin(theta)/ud;
+venus.z = theta*0/ud;
+legenda(end+1) = plotar_ponto([earth.x' earth.y'], "Órbita Terra", '--');
+legenda(end+1) = plotar_ponto([mars.x' mars.y'], "Órbita Marte", '--');
+legenda(end+1) = plotar_ponto([venus.x' venus.y'], "Órbita Vênus", '--');
+
 disp("Custos: ");
 disp(deltaV);
 
 grid on;
 axis equal
-legend(legenda(2:end));
+legend(legenda(2:end), 'Location', 'eastoutside');
+title('Cônicas das trajetórias da espaçonave');
 xlabel('x [UA]');
 ylabel('y [UA]');
 
