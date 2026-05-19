@@ -1,0 +1,72 @@
+name: E2E (Playwright + screenshots)
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'tests/**'
+      - 'playwright.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/e2e.yml'
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+          retention-days: 30
+
+      - name: Comment on PR with artifact links
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: e2e-evidence
+          message: |
+            ### Evidências visuais E2E
+
+            Status: **${{ job.status }}** · run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            Artefatos disponíveis na página do run:
+
+            - **screenshots** — PNGs dos principais fluxos (landing, swing-by, direto, edição de parâmetro, PSO, porkchop, mobile)
+            - **playwright-report** — relatório HTML completo com screenshots embutidos, traces e vídeos de falhas
+
+            Para visualizar: abrir a aba *Summary* do workflow run e baixar o artifact desejado.

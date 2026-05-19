@@ -1,0 +1,18 @@
+{
+  "name": "optimized-earth-mars-transfer-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Testes E2E para o simulador web em /docs",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "serve": "http-server docs -p 8765 -c-1 -s"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "http-server": "^14.1.1",
+    "plotly.js-dist-min": "^3.5.1"
+  }
+}
