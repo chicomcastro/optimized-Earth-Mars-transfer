@@ -30,3 +30,10 @@ octave-workspace
 # Custom files
 *.txt
 notes.md
+
+# Node / Playwright (testes e2e)
+node_modules/
+playwright-report/
+test-results/
+screenshots/
+*.log
