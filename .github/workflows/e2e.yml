@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write       # precisa pra push na branch `screenshots`
   pull-requests: write
 
 jobs:
@@ -36,7 +36,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
+        id: tests
         run: npm run test:e2e
+        continue-on-error: true
 
       - name: Upload Playwright HTML report
         if: always()
@@ -54,19 +56,118 @@ jobs:
           path: screenshots
           retention-days: 30
 
-      - name: Comment on PR with artifact links
+      # Publica os PNGs em uma branch dedicada `screenshots`, organizada por PR/commit.
+      # Usado em seguida pelo comentário sticky para embeddar as imagens via raw.githubusercontent.
+      - name: Publish screenshots to dedicated branch
+        if: github.event_name == 'pull_request' && always()
+        id: publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -e
+          SHORT="${HEAD_SHA:0:7}"
+          DEST="pr-${PR_NUMBER}/${SHORT}"
+          echo "DEST=$DEST" >> "$GITHUB_OUTPUT"
+          echo "SHORT=$SHORT" >> "$GITHUB_OUTPUT"
+
+          if [ ! -d screenshots ] || [ -z "$(ls -A screenshots 2>/dev/null)" ]; then
+            echo "no screenshots produced — skipping publish"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p /tmp/shots-staging
+          cp screenshots/*.png /tmp/shots-staging/
+
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git fetch origin screenshots:screenshots 2>/dev/null || true
+          if git show-ref --verify --quiet refs/heads/screenshots; then
+            git worktree add /tmp/shots-branch screenshots
+          else
+            git worktree add --detach /tmp/shots-branch
+            (cd /tmp/shots-branch && git checkout --orphan screenshots && \
+             git rm -rf . 2>/dev/null || true)
+          fi
+
+          mkdir -p "/tmp/shots-branch/$DEST"
+          cp /tmp/shots-staging/*.png "/tmp/shots-branch/$DEST/"
+          (
+            cd /tmp/shots-branch
+            git add "$DEST"
+            if git diff --cached --quiet; then
+              echo "no changes to commit"
+            else
+              git commit -m "PR #${PR_NUMBER} @ ${SHORT}: e2e screenshots"
+              git push origin HEAD:screenshots
+            fi
+          )
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR comment with inline screenshots
+        if: github.event_name == 'pull_request' && always()
+        id: build_comment
+        env:
+          STATUS: ${{ steps.tests.outcome }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEST: ${{ steps.publish.outputs.DEST }}
+          PUBLISHED: ${{ steps.publish.outputs.published }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+        run: |
+          set -e
+          SHORT="${HEAD_SHA:0:7}"
+          if [ "$STATUS" = "success" ]; then
+            BADGE="✅ **${STATUS}**"
+          else
+            BADGE="❌ **${STATUS}**"
+          fi
+          RUN_URL="${SERVER}/${REPO}/actions/runs/${RUN_ID}"
+          BASE="https://raw.githubusercontent.com/${REPO}/screenshots/${DEST}"
+
+          OUT=/tmp/comment.md
+          : > "$OUT"
+          printf '### Evidências visuais E2E\n\n' >> "$OUT"
+          printf '%s · run [#%s](%s) · commit `%s`\n\n' "$BADGE" "$RUN_NUMBER" "$RUN_URL" "$SHORT" >> "$OUT"
+
+          if [ "$PUBLISHED" != "true" ]; then
+            printf '_Nenhum screenshot foi publicado nesta execução._\n\n' >> "$OUT"
+            printf 'Artefatos completos (HTML report com traces e vídeos) em [run #%s](%s).\n' "$RUN_NUMBER" "$RUN_URL" >> "$OUT"
+          else
+            printf '<table>\n' >> "$OUT"
+            i=0
+            for f in $(ls screenshots/*.png | sort); do
+              name=$(basename "$f" .png)
+              if [ $((i % 2)) -eq 0 ]; then printf '<tr>\n' >> "$OUT"; fi
+              printf '  <td valign="top" width="50%%"><b>%s</b><br><a href="%s/%s.png"><img src="%s/%s.png" width="420" alt="%s"></a></td>\n' \
+                "$name" "$BASE" "$name" "$BASE" "$name" "$name" >> "$OUT"
+              i=$((i+1))
+              if [ $((i % 2)) -eq 0 ]; then printf '</tr>\n' >> "$OUT"; fi
+            done
+            if [ $((i % 2)) -ne 0 ]; then printf '  <td></td>\n</tr>\n' >> "$OUT"; fi
+            printf '</table>\n\n' >> "$OUT"
+            printf 'Relatório HTML completo (com traces e vídeos de falhas): baixar `playwright-report` em [run #%s](%s).\n' "$RUN_NUMBER" "$RUN_URL" >> "$OUT"
+          fi
+
+          echo "--- Generated comment ---"
+          head -60 "$OUT"
+
+      - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: e2e-evidence
-          message: |
-            ### Evidências visuais E2E
+          path: /tmp/comment.md
 
-            Status: **${{ job.status }}** · run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-            Artefatos disponíveis na página do run:
-
-            - **screenshots** — PNGs dos principais fluxos (landing, swing-by, direto, edição de parâmetro, PSO, porkchop, mobile)
-            - **playwright-report** — relatório HTML completo com screenshots embutidos, traces e vídeos de falhas
-
-            Para visualizar: abrir a aba *Summary* do workflow run e baixar o artifact desejado.
+      # Falha o job se os testes falharam, mas só depois do comentário
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "E2E tests failed — see PR comment and report artifact"
+          exit 1
