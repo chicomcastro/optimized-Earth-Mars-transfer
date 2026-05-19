@@ -18,11 +18,25 @@ Os screenshots ficam em `screenshots/` e também aparecem no relatório HTML
 ## CI
 
 O workflow `.github/workflows/e2e.yml` roda automaticamente em todo PR que
-toca `docs/`, `tests/`, ou config. Ao final:
+toca `docs/`, `tests/`, ou config. Ao final, ele:
 
-- faz upload de `screenshots/` como artifact (30 dias de retenção)
-- faz upload de `playwright-report/` como artifact (14 dias)
-- comenta no PR com links para o run do workflow (sticky, atualizado a cada push)
+1. Faz upload de `screenshots/` como artifact (30 dias) e `playwright-report/` (14 dias)
+2. **Publica os PNGs na branch dedicada `screenshots`** sob `pr-{N}/{commit_short}/`
+3. **Comenta no PR (sticky) com as imagens embutidas inline**, referenciando-as via `raw.githubusercontent.com`
+
+Assim cada push em um PR atualiza um único comentário com a grade visual
+das telas — sem precisar baixar artifact. Imagens são clicáveis pra ver em
+tamanho original.
+
+### Como funciona o auto-postagem das evidências
+
+- Permissão `contents: write` no workflow permite ao `GITHUB_TOKEN` fazer push.
+- A branch `screenshots` é criada como **orphan** na primeira execução.
+- Cada PR tem seu diretório isolado; uma execução não sobrescreve a anterior
+  (o commit SHA vira parte do path), então o histórico de evidências fica
+  preservado.
+- Para limpar evidências antigas, basta deletar diretórios ou a branch toda
+  manualmente — não há nada acoplado a ela.
 
 ## Fluxos cobertos
 
