@@ -228,3 +228,76 @@ test('12 - viewport mobile - bottom nav visível', async ({ page }) => {
   await expect(page.locator('nav.bottom-nav')).toBeVisible();
   await shoot(page, '12-mobile-bottom-nav');
 });
+
+test('13 - viewport ultra-estreito (320px)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  await shoot(page, '13-mobile-320px');
+});
+
+test('15 - mobile - trajetória renderiza com legend horizontal', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  // Scroll para mostrar o plot completamente
+  await page.evaluate(() => {
+    document.querySelector('#plot').scrollIntoView({ block: 'center' });
+  });
+  await page.waitForTimeout(500);
+  await shoot(page, '15-mobile-trajetoria');
+});
+
+test('16 - mobile - porkchop click flow', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+
+  // Vai pra exploração via bottom nav
+  await page.click('nav.bottom-nav a[data-target="exploracao"]');
+  await page.waitForTimeout(700);
+  await page.click('#btnPorkchop');
+  await page.waitForFunction(
+    () => document.getElementById('porkchop')?.querySelector('svg') !== null,
+    { timeout: 150_000 }
+  );
+  await page.waitForTimeout(800);
+  await shoot(page, '16-mobile-porkchop-gerado');
+
+  // Click no porkchop
+  await page.evaluate(() => {
+    document.getElementById('porkchop').emit('plotly_click', {
+      points: [{ x: 180, y: 260, z: 5.7 }],
+    });
+  });
+  await page.waitForTimeout(1200);
+  await shoot(page, '16b-mobile-porkchop-aplicado');
+});
+
+test('14 - PSO mostra convergência completa', async ({ page }) => {
+  await page.click('label[for="modeDirect"]');
+  await page.fill('#psoParticles', '50');
+  await page.fill('#psoIterations', '40');
+  await page.click('#btnRun');
+  await page.waitForFunction(
+    () => /finalizado/i.test(document.getElementById('psoStatus').textContent),
+    { timeout: 30_000 }
+  );
+  await page.waitForTimeout(400);
+
+  // O plot de convergência deve ter pontos > 5 (mais de uma iter visível)
+  const tracePoints = await page.evaluate(() => {
+    const div = document.getElementById('convergence');
+    const traces = div.data || (div._fullData ? div._fullData : null);
+    return traces && traces[0] && traces[0].x ? traces[0].x.length : 0;
+  });
+  expect(tracePoints).toBeGreaterThanOrEqual(10);
+
+  await page.locator('#otimizacao').scrollIntoViewIfNeeded();
+  await shoot(page, '14-pso-convergencia-completa');
+});

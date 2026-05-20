@@ -73,6 +73,7 @@ function renderInputs(venusSwingBy, values) {
   // Bind events: slider + click-to-edit no pc-value
   $$(".pc-slider", $("paramInputs")).forEach((slider) => {
     slider.addEventListener("input", onSliderInput);
+    updateSliderFill(slider); // pinta o track inicial
   });
   $$(".pc-value", $("paramInputs")).forEach((pc) => {
     pc.addEventListener("click", () => enterEditMode(pc));
@@ -93,7 +94,16 @@ function onSliderInput(e) {
   const v = parseFloat(slider.value);
   const decimals = isAngle ? 2 : v > 10 ? 1 : 4;
   numEl.textContent = v.toFixed(decimals);
+  updateSliderFill(slider);
   refreshScenario();
+}
+
+function updateSliderFill(slider) {
+  const min = parseFloat(slider.min);
+  const max = parseFloat(slider.max);
+  const v = parseFloat(slider.value);
+  const pct = ((v - min) / (max - min)) * 100;
+  slider.style.setProperty("--val", pct);
 }
 
 function enterEditMode(pcValue) {
@@ -165,20 +175,41 @@ function refreshScenario(opts = {}) {
   });
 }
 
-function renderCost(sim, venusSwingBy, pulse) {
-  const costValue = $("costValue");
-  const costSub = $("costSub");
-
-  costValue.classList.add("updating");
-  setTimeout(() => {
-    costValue.textContent = fmt(sim.cost, 3);
-    costValue.classList.remove("updating");
-    if (pulse) {
-      $("costDisplay").classList.remove("pulse-once");
-      void $("costDisplay").offsetWidth; // reflow
-      $("costDisplay").classList.add("pulse-once");
+let costTween = { rafId: null, current: NaN };
+function tweenCost(to, duration = 220) {
+  const el = $("costValue");
+  const from = isFinite(costTween.current) ? costTween.current : to;
+  const start = performance.now();
+  if (costTween.rafId) cancelAnimationFrame(costTween.rafId);
+  if (!isFinite(to)) {
+    el.textContent = "∞";
+    costTween.current = NaN;
+    return;
+  }
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    const v = from + (to - from) * eased;
+    el.textContent = v.toFixed(3);
+    if (t < 1) costTween.rafId = requestAnimationFrame(step);
+    else {
+      el.textContent = to.toFixed(3);
+      costTween.current = to;
+      costTween.rafId = null;
     }
-  }, 60);
+  };
+  costTween.rafId = requestAnimationFrame(step);
+}
+
+function renderCost(sim, venusSwingBy, pulse) {
+  const costSub = $("costSub");
+  tweenCost(sim.cost);
+  if (pulse) {
+    const cd = $("costDisplay");
+    cd.classList.remove("pulse-once");
+    void cd.offsetWidth;
+    cd.classList.add("pulse-once");
+  }
 
   const labels = venusSwingBy
     ? ["partida", "swing-by Vênus", "captura Marte"]

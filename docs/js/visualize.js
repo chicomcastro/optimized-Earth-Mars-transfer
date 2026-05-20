@@ -56,6 +56,7 @@ function plotTrajectory(divId, sim, opts = {}) {
   });
 
   const lim = opts.lim || 1.7;
+  const isNarrow = window.innerWidth < 820;
   const layout = {
     paper_bgcolor: "#070912",
     plot_bgcolor: "#070912",
@@ -68,13 +69,21 @@ function plotTrajectory(divId, sim, opts = {}) {
       title: "y [UA]", range: [-lim, lim],
       gridcolor: "#1d2742", zerolinecolor: "#2c3a66",
     },
-    margin: { t: 30, l: 50, r: 12, b: 40 },
+    margin: isNarrow
+      ? { t: 30, l: 40, r: 12, b: 70 }
+      : { t: 30, l: 50, r: 12, b: 40 },
     showlegend: true,
-    legend: {
-      bgcolor: "rgba(7,9,18,0.7)", bordercolor: "#1d2742", borderwidth: 1,
-      font: { size: 10 }, orientation: "v",
-      x: 1.02, xanchor: "left", y: 1, yanchor: "top",
-    },
+    legend: isNarrow
+      ? {
+          bgcolor: "rgba(7,9,18,0.7)", bordercolor: "#1d2742", borderwidth: 1,
+          font: { size: 9 }, orientation: "h",
+          x: 0.5, xanchor: "center", y: -0.18, yanchor: "top",
+        }
+      : {
+          bgcolor: "rgba(7,9,18,0.7)", bordercolor: "#1d2742", borderwidth: 1,
+          font: { size: 10 }, orientation: "v",
+          x: 1.02, xanchor: "left", y: 1, yanchor: "top",
+        },
     title: { text: opts.title || "Cônicas da trajetória", font: { size: 13 } },
   };
 
