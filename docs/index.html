@@ -129,15 +129,62 @@
 <section id="exploracao" class="reveal">
   <h2>Exploração: porkchop plot</h2>
   <p>
-    Mapa de custo da transferência direta Terra → Marte em função da
-    fase de Marte e do tempo de voo. <strong>Clique em qualquer ponto</strong>
-    para aplicar esses parâmetros no simulador e ver a trajetória.
+    Mapa de custo (ΔV) variando dois parâmetros enquanto os outros ficam
+    fixos. <strong>Clique em qualquer ponto</strong> para aplicar a
+    configuração no simulador e visualizar a trajetória.
   </p>
+
   <div class="card">
+    <!-- 1) Seleção do modo de exploração -->
+    <div class="porkchop-row">
+      <label class="porkchop-select-label">explorar:
+        <select id="porkchopExploration">
+          <option value="direct-phase-time">Direta · fase Marte × tempo voo</option>
+          <option value="sb-phases">Swing-by · fase Marte × fase Vênus</option>
+          <option value="sb-times">Swing-by · T-V × V-M</option>
+          <option value="sb-venus-time">Swing-by · fase Vênus × T-V</option>
+          <option value="sb-rp-venus">Swing-by · r_p × fase Vênus</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- 2) Ranges customizáveis -->
+    <div class="porkchop-ranges">
+      <div class="pr-axis">
+        <div class="pr-label">eixo X · <span id="porkchopXLabel"></span></div>
+        <div class="pr-inputs">
+          <input type="number" id="porkchopXMin" step="any" />
+          <span class="pr-sep">→</span>
+          <input type="number" id="porkchopXMax" step="any" />
+        </div>
+      </div>
+      <div class="pr-axis">
+        <div class="pr-label">eixo Y · <span id="porkchopYLabel"></span></div>
+        <div class="pr-inputs">
+          <input type="number" id="porkchopYMin" step="any" />
+          <span class="pr-sep">→</span>
+          <input type="number" id="porkchopYMax" step="any" />
+        </div>
+      </div>
+      <div class="pr-axis">
+        <div class="pr-label">resolução</div>
+        <div class="pr-inputs">
+          <input type="number" id="porkchopN" value="50" min="10" max="200" step="5" style="width:70px" />
+          <span class="pr-hint">N × N samples</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3) Parâmetros fixos (informativo) -->
+    <div class="porkchop-fixed" id="porkchopFixed"></div>
+
+    <!-- 4) Ações -->
     <div class="controls-row">
       <button class="btn btn-primary" id="btnPorkchop">▶ gerar porkchop</button>
-      <span class="status-line">~50×50 amostras · alguns segundos</span>
+      <button class="btn" id="porkchopReset" title="Resetar ranges aos padrões">↺ ranges padrão</button>
     </div>
+
+    <!-- 5) Plot -->
     <div class="plot-wrap">
       <div id="porkchop" class="plot"></div>
       <div class="plot-hint" id="porkchopHint" style="display: none;">clique para aplicar</div>

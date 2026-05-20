@@ -206,39 +206,64 @@ function plotConvergence(divId, history) {
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 }
 
-function plotPorkchop(divId, opts = {}) {
-  const venusSwingBy = false;
-  const phaseMin = 0, phaseMax = 2 * Math.PI;
-  const tMin = 120, tMax = 360;
-  const N = opts.N || 60;
+// =============================================================================
+// Porkchop genérico — varia dois parâmetros quaisquer, os outros ficam fixos.
+// =============================================================================
+//
+// exploration = {
+//   venusSwingBy: bool,
+//   xIdx, yIdx: índice no vetor de parâmetros (depende do modo)
+//   xKind, yKind: 'angle' | 'days' | 'ratio'
+//   xMin, xMax, yMin, yMax: defaults em unidades de display (graus, dias, ratio)
+//   xLabel, yLabel: rótulos pros eixos
+// }
+// opts.baseX = vetor de parâmetros base (os fixos vêm daqui)
+// opts.xMin/xMax/yMin/yMax = override dos ranges
+// opts.N = densidade da grade (default 50)
+// opts.onClick = (point) => apply (x value, y value)
+function plotPorkchop(divId, opts) {
+  const e = opts.exploration;
+  const xMin = opts.xMin ?? e.xMin;
+  const xMax = opts.xMax ?? e.xMax;
+  const yMin = opts.yMin ?? e.yMin;
+  const yMax = opts.yMax ?? e.yMax;
+  const N = opts.N || 50;
+  const baseX = opts.baseX.slice();
+
+  const xVals = [];
+  const yVals = [];
+  for (let i = 0; i < N; i++) xVals.push(xMin + ((xMax - xMin) * i) / (N - 1));
+  for (let j = 0; j < N; j++) yVals.push(yMin + ((yMax - yMin) * j) / (N - 1));
+
+  const toModel = (val, kind) => (kind === 'angle' ? (val * Math.PI) / 180 : val);
+
   const z = [];
-  const phases = [];
-  const times = [];
-  for (let i = 0; i < N; i++) phases.push(phaseMin + (phaseMax - phaseMin) * i / (N - 1));
-  for (let j = 0; j < N; j++) times.push(tMin + (tMax - tMin) * j / (N - 1));
   for (let j = 0; j < N; j++) {
     const row = [];
     for (let i = 0; i < N; i++) {
-      const c = cost([phases[i], times[j]], { venusSwingBy });
+      const xv = baseX.slice();
+      xv[e.xIdx] = toModel(xVals[i], e.xKind);
+      xv[e.yIdx] = toModel(yVals[j], e.yKind);
+      const c = cost(xv, { venusSwingBy: e.venusSwingBy });
       row.push(isFinite(c) ? Math.min(c, 30) : 30);
     }
     z.push(row);
   }
-  const phaseDeg = phases.map((p) => (p * 180) / Math.PI);
+
   const trace = {
-    z, x: phaseDeg, y: times,
+    z, x: xVals, y: yVals,
     type: 'contour', colorscale: 'Viridis',
     contours: { coloring: 'heatmap' },
     colorbar: { title: 'ΔV [km/s]', thickness: 14 },
-    hovertemplate: 'fase Marte: %{x:.1f}°<br>t = %{y:.0f} d<br>ΔV = %{z:.2f} km/s<extra></extra>',
+    hovertemplate: `${e.xLabel}: %{x:.2f}<br>${e.yLabel}: %{y:.2f}<br>ΔV = %{z:.2f} km/s<extra></extra>`,
   };
   const layout = {
     paper_bgcolor: '#070912', plot_bgcolor: '#070912',
     font: { color: '#e8eefb', size: 11 },
-    xaxis: { title: 'fase de Marte [°]', gridcolor: '#1d2742' },
-    yaxis: { title: 'tempo de voo [d]', gridcolor: '#1d2742' },
-    title: { text: 'Porkchop — Terra → Marte (clique para aplicar)', font: { size: 13 } },
-    margin: { t: 40, l: 56, r: 60, b: 50 },
+    xaxis: { title: e.xLabel, gridcolor: '#1d2742' },
+    yaxis: { title: e.yLabel, gridcolor: '#1d2742' },
+    title: { text: opts.title || 'Porkchop (clique para aplicar)', font: { size: 13 } },
+    margin: { t: 40, l: 70, r: 60, b: 50 },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 
@@ -246,7 +271,16 @@ function plotPorkchop(divId, opts = {}) {
     document.getElementById(divId).on('plotly_click', (data) => {
       if (!data.points || data.points.length === 0) return;
       const p = data.points[0];
-      opts.onClick({ phaseDeg: p.x, tDays: p.y, cost: p.z });
+      opts.onClick({
+        xValue: p.x,
+        yValue: p.y,
+        cost: p.z,
+        xIdx: e.xIdx,
+        yIdx: e.yIdx,
+        xKind: e.xKind,
+        yKind: e.yKind,
+        venusSwingBy: e.venusSwingBy,
+      });
     });
   }
 }

@@ -196,6 +196,75 @@ test('08 - porkchop click aplica params no simulador', async ({ page }) => {
   await shoot(page, '08-porkchop-click-aplicado');
 });
 
+test('29 - porkchop seletor lista 5 explorações', async ({ page }) => {
+  const opts = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#porkchopExploration option')).map((o) => o.value)
+  );
+  expect(opts).toEqual([
+    'direct-phase-time',
+    'sb-phases',
+    'sb-times',
+    'sb-venus-time',
+    'sb-rp-venus',
+  ]);
+});
+
+test('30 - trocar exploração atualiza labels dos eixos e parâmetros fixos', async ({ page }) => {
+  await page.selectOption('#porkchopExploration', 'sb-phases');
+  await page.waitForTimeout(200);
+
+  expect(await page.locator('#porkchopXLabel').textContent()).toContain('Marte');
+  expect(await page.locator('#porkchopYLabel').textContent()).toContain('Vênus');
+
+  // Deve mostrar 3 pílulas de parâmetros fixos (T-V, V-M, r_p)
+  const fixedCount = await page.locator('#porkchopFixed .fixed-pill').count();
+  expect(fixedCount).toBe(3);
+});
+
+test('31 - porkchop swing-by gera plot com range custom', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.selectOption('#porkchopExploration', 'sb-times');
+  await page.waitForTimeout(200);
+
+  // Customiza range: T-V em [60, 160], V-M em [60, 220]
+  await page.fill('#porkchopXMin', '60');
+  await page.fill('#porkchopXMax', '160');
+  await page.fill('#porkchopYMin', '60');
+  await page.fill('#porkchopYMax', '220');
+  await page.fill('#porkchopN', '25');
+
+  await page.locator('#exploracao').scrollIntoViewIfNeeded();
+  await page.click('#btnPorkchop');
+  await page.waitForFunction(
+    () => document.getElementById('porkchop')?.querySelector('svg') !== null,
+    { timeout: 90_000 }
+  );
+  await page.waitForTimeout(500);
+
+  // Confere ranges no plot
+  const ranges = await page.evaluate(() => {
+    const div = document.getElementById('porkchop');
+    const lay = div.layout || div._fullLayout;
+    return { x: lay.xaxis.range || [lay.xaxis.autorange], y: lay.yaxis.range || [lay.yaxis.autorange] };
+  });
+  expect(ranges.x[0]).toBeGreaterThanOrEqual(55);
+  expect(ranges.x[1]).toBeLessThanOrEqual(165);
+
+  await shoot(page, '31-porkchop-swingby-times');
+});
+
+test('32 - reset ranges volta aos defaults', async ({ page }) => {
+  await page.selectOption('#porkchopExploration', 'sb-phases');
+  await page.waitForTimeout(200);
+  await page.fill('#porkchopXMin', '90');
+  await page.fill('#porkchopXMax', '270');
+
+  await page.click('#porkchopReset');
+  await page.waitForTimeout(150);
+  expect(await page.locator('#porkchopXMin').inputValue()).toBe('0');
+  expect(await page.locator('#porkchopXMax').inputValue()).toBe('360');
+});
+
 test('09 - navegação muda seção ativa', async ({ page }) => {
   // Click no link do PSO no topNav
   await page.click('nav.tabs a[data-target="otimizacao"]');

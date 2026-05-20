@@ -665,6 +665,76 @@ input[type="range"]::-moz-range-thumb {
 }
 .psr-note b { color: var(--text); }
 
+/* ============================================================
+   Controles do porkchop (explorations + range)
+   ============================================================ */
+.porkchop-row {
+  display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+.porkchop-select-label {
+  display: inline-flex; gap: 0.5rem; align-items: center;
+  color: var(--text-soft); font-size: 0.88rem;
+  flex: 1; min-width: 240px;
+}
+#porkchopExploration {
+  appearance: none;
+  background: var(--bg-elev); color: var(--text);
+  border: 1px solid var(--border-soft); border-radius: 10px;
+  padding: 0.55rem 2rem 0.55rem 0.85rem;
+  font: inherit; font-size: 0.9rem;
+  cursor: pointer; outline: none;
+  flex: 1; min-width: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%2322d3ee' d='M6 8L0 0h12z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 10px;
+  transition: border-color var(--t-fast) var(--ease);
+}
+#porkchopExploration:hover, #porkchopExploration:focus {
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.porkchop-ranges {
+  display: grid; gap: 0.55rem 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  padding: 0.7rem; margin-bottom: 0.7rem;
+  background: rgba(7, 9, 18, 0.4); border-radius: 10px;
+  border: 1px solid var(--border-soft);
+}
+.pr-axis { display: flex; flex-direction: column; gap: 0.3rem; }
+.pr-label {
+  font-size: 0.72rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+}
+.pr-label span { color: var(--accent); text-transform: none; letter-spacing: 0; font-weight: 500; }
+.pr-inputs {
+  display: flex; gap: 0.35rem; align-items: center;
+}
+.pr-inputs input[type="number"] {
+  flex: 1; min-width: 0; max-width: 100px;
+  padding: 0.4rem 0.55rem;
+  background: var(--bg-elev); color: var(--text);
+  border: 1px solid var(--border-soft); border-radius: 6px;
+  font-family: ui-monospace, monospace; font-size: 0.85rem;
+}
+.pr-sep { color: var(--muted); font-size: 0.85rem; }
+.pr-hint { color: var(--muted); font-size: 0.75rem; }
+
+.porkchop-fixed {
+  display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;
+  margin-bottom: 0.7rem; font-size: 0.78rem;
+}
+.fp-label { color: var(--muted); margin-right: 0.2rem; }
+.fixed-pill {
+  display: inline-flex; gap: 0.35rem; align-items: baseline;
+  padding: 0.25rem 0.6rem; border-radius: 999px;
+  background: var(--accent-2-soft); border: 1px solid rgba(167, 139, 250, 0.25);
+  color: var(--text-soft); font-family: ui-monospace, monospace;
+}
+.fixed-pill .fp-name { color: var(--muted); font-size: 0.74rem; }
+.fixed-pill b { color: var(--accent-2); font-size: 0.82rem; font-weight: 600; }
+
 /* Container do plot principal com hint de interatividade */
 .plot-wrap {
   position: relative;
