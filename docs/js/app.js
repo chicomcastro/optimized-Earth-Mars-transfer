@@ -32,6 +32,21 @@ let currentRun = null;
 let convergenceHistory = [];
 let porkchopReady = false;
 
+// === Estado da animação ===
+const Anim = {
+  sim: null,
+  t: 0,             // tempo atual em segundos
+  speed: 1,         // multiplicador
+  frame: 'helio',   // referencial atual
+  showShadow: false,
+  playing: false,
+  lastTs: 0,
+  rafId: null,
+  // Quantos "segundos de simulação" por segundo de wall-clock @ 1x
+  // t_total_s típico é ~22M segundos (259 dias); queremos animar em ~8s.
+  baseRate: 0,
+};
+
 // ============================================================
 // Param controls: sliders + numeric (sincronizados)
 // ============================================================
@@ -170,8 +185,127 @@ function refreshScenario(opts = {}) {
   const xClamped = clampVec(x, bnd.lb, bnd.ub);
   const sim = simulate(xClamped, { venusSwingBy });
   renderCost(sim, venusSwingBy, opts.pulse);
+
+  // Atualiza estado da animação
+  Anim.sim = sim;
+  // Por padrão, deixa no final (estado completo da trajetória)
+  if (!opts.keepTime) Anim.t = sim.t_total_s;
+  // Base rate: simula a missão inteira em ~8s wall-clock @ 1x
+  Anim.baseRate = sim.t_total_s / 8;
+  updateAnimUI();
+
   plotTrajectory("plot", sim, {
-    title: venusSwingBy ? "Terra → Vênus → Marte" : "Terra → Marte",
+    t: Anim.t,
+    frame: Anim.frame,
+    showShadow: Anim.showShadow,
+  });
+}
+
+// === Animação ===
+
+function updateAnimUI() {
+  if (!Anim.sim) return;
+  const total = Anim.sim.t_total_s;
+  const pct = total > 0 ? Math.round((Anim.t / total) * 1000) : 1000;
+  const scrubber = $("animTime");
+  if (scrubber && document.activeElement !== scrubber) {
+    scrubber.value = String(pct);
+  }
+  const label = $("animTimeLabel");
+  if (label) {
+    const cur = (Anim.t / 86400).toFixed(0);
+    const tot = (total / 86400).toFixed(0);
+    label.textContent = `${cur} / ${tot} d`;
+  }
+}
+
+function renderFrame() {
+  if (!Anim.sim) return;
+  updateTrajectoryFrame("plot", Anim.sim, {
+    t: Anim.t,
+    frame: Anim.frame,
+    showShadow: Anim.showShadow,
+  });
+  updateAnimUI();
+}
+
+function animTick(ts) {
+  if (!Anim.playing) return;
+  if (Anim.lastTs === 0) Anim.lastTs = ts;
+  const dt = (ts - Anim.lastTs) / 1000; // wall seconds
+  Anim.lastTs = ts;
+  Anim.t += Anim.baseRate * Anim.speed * dt;
+  if (Anim.t >= Anim.sim.t_total_s) {
+    Anim.t = Anim.sim.t_total_s;
+    animPause();
+  }
+  renderFrame();
+  if (Anim.playing) Anim.rafId = requestAnimationFrame(animTick);
+}
+
+function animPlay() {
+  if (!Anim.sim) return;
+  if (Anim.t >= Anim.sim.t_total_s) Anim.t = 0; // reinicia se no fim
+  Anim.playing = true;
+  Anim.lastTs = 0;
+  $("animPlayIcon").textContent = "⏸";
+  $("animPlay").classList.add("playing");
+  Anim.rafId = requestAnimationFrame(animTick);
+}
+
+function animPause() {
+  Anim.playing = false;
+  if (Anim.rafId) cancelAnimationFrame(Anim.rafId);
+  Anim.rafId = null;
+  $("animPlayIcon").textContent = "▶";
+  $("animPlay").classList.remove("playing");
+}
+
+function animReset() {
+  animPause();
+  Anim.t = 0;
+  renderFrame();
+}
+
+function bindAnim() {
+  $("animPlay").addEventListener("click", () => {
+    if (Anim.playing) animPause();
+    else animPlay();
+  });
+  $("animReset").addEventListener("click", animReset);
+  $("animTime").addEventListener("input", (e) => {
+    if (!Anim.sim) return;
+    const pct = parseInt(e.target.value, 10) / 1000;
+    Anim.t = pct * Anim.sim.t_total_s;
+    if (Anim.playing) animPause();
+    renderFrame();
+  });
+  // Speed radios
+  const speedMap = { speedHalf: 0.5, speed1: 1, speed2: 2, speed5: 5 };
+  Object.keys(speedMap).forEach((id) => {
+    $(id).addEventListener("change", () => {
+      if ($(id).checked) Anim.speed = speedMap[id];
+    });
+  });
+  // Frame radios
+  const frameMap = { frameHelio: 'helio', frameGeo: 'geo', frameSyn: 'synodic' };
+  Object.keys(frameMap).forEach((id) => {
+    $(id).addEventListener("change", () => {
+      if ($(id).checked) {
+        Anim.frame = frameMap[id];
+        // Re-plot inteiro pq legendas/órbitas mudam
+        if (Anim.sim) {
+          plotTrajectory("plot", Anim.sim, {
+            t: Anim.t, frame: Anim.frame, showShadow: Anim.showShadow,
+          });
+        }
+      }
+    });
+  });
+  // Shadow toggle
+  $("toggleShadow").addEventListener("change", (e) => {
+    Anim.showShadow = e.target.checked;
+    renderFrame();
   });
 }
 
@@ -417,6 +551,7 @@ function bindEvents() {
   bindPorkchop();
   bindNav();
   bindReveal();
+  bindAnim();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

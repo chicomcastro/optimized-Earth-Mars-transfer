@@ -142,6 +142,38 @@ function simulate(x, options = {}) {
     const total = deltaV.reduce((a, b) => a + b, 0);
     if (!isFinite(total)) return inf();
 
+    // Tempo total da missão em segundos
+    const DAYS = 86400;
+    const legDurations_s = venusSwingBy
+      ? [t_terra_venus * DAYS, t_venus_marte * DAYS]
+      : [t_terra_marte * DAYS];
+    const t_total_s = legDurations_s.reduce((a, b) => a + b, 0);
+
+    // Mean motion dos planetas (rad/s, CCW)
+    const omegaPlanet = (r) => Math.sqrt(C.mi_sol / Math.pow(r, 3));
+    const omegaE = omegaPlanet(C.r_st);
+    const omegaV = omegaPlanet(C.r_sv);
+    const omegaM = omegaPlanet(C.r_sm);
+
+    // Posições iniciais (t=0, momento da partida da Terra)
+    // Terra: sempre parte de fase 0. Vênus e Marte: voltam o tempo de voo
+    // até onde estavam no t=0 (eles giram CCW, então sub).
+    const phaseE_initial = 0;
+    const phaseV_initial = venusSwingBy
+      ? phase_venus - omegaV * (t_terra_venus * DAYS)
+      : 0;
+    const phaseM_initial = phase_marte - omegaM * t_total_s;
+
+    const r_terra_sol_initial = r_terra_sol;
+    const r_venus_sol_initial = Vec.rotZ(Vec.scale(base, C.r_sv), phaseV_initial);
+    const r_marte_sol_initial = Vec.rotZ(Vec.scale(base, C.r_sm), phaseM_initial);
+
+    // Acumula durações pra saber em qual leg estamos a cada t
+    const legStarts_s = [0];
+    for (let i = 0; i < legDurations_s.length; i++) {
+      legStarts_s.push(legStarts_s[i] + legDurations_s[i]);
+    }
+
     return {
       cost: total,
       deltaV,
@@ -150,6 +182,15 @@ function simulate(x, options = {}) {
       v_terra_sol, v_venus_sol, v_marte_sol,
       banco_v_saida, banco_v_chegada,
       phase_terra, phase_venus, phase_marte,
+      // Estado inicial (t=0)
+      r_terra_sol_initial, r_venus_sol_initial, r_marte_sol_initial,
+      phaseE_initial, phaseV_initial, phaseM_initial,
+      // Animação
+      t_total_s,
+      legDurations_s,
+      legStarts_s,
+      omegaE, omegaV, omegaM,
+      venusSwingBy,
     };
   } catch (e) {
     return inf();

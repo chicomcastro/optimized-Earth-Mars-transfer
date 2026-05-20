@@ -79,9 +79,46 @@
     </div>
 
     <div class="card" style="padding: 0.5rem; display: flex; flex-direction: column;">
+      <!-- Controles de referencial e visualização -->
+      <div class="anim-toolbar">
+        <div class="segmented segmented-sm" role="tablist" aria-label="Referencial">
+          <input type="radio" id="frameHelio" name="frame" checked />
+          <label for="frameHelio" title="Sol no centro, inercial">☀ helio</label>
+          <input type="radio" id="frameGeo" name="frame" />
+          <label for="frameGeo" title="Terra fixa">🌍 geo</label>
+          <input type="radio" id="frameSyn" name="frame" />
+          <label for="frameSyn" title="Rotativo Terra-Sol">↻ sinódico</label>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleShadow" />
+          <span>shadow t=0</span>
+        </label>
+      </div>
+
       <div class="plot-wrap" style="flex: 1;">
         <div id="plot" class="plot"></div>
         <div class="plot-hint">arraste para girar · scroll para zoom</div>
+      </div>
+
+      <!-- Player de animação -->
+      <div class="anim-player">
+        <button class="btn-icon" id="animPlay" aria-label="play/pause" title="Play / Pause">
+          <span id="animPlayIcon">▶</span>
+        </button>
+        <button class="btn-icon" id="animReset" aria-label="reset" title="Voltar ao início">⟲</button>
+        <input type="range" id="animTime" min="0" max="1000" value="1000" step="1"
+               aria-label="tempo da missão" class="anim-scrubber" />
+        <span class="anim-time" id="animTimeLabel">0 / 0 d</span>
+        <div class="segmented segmented-sm anim-speed" role="tablist" aria-label="Velocidade">
+          <input type="radio" id="speedHalf" name="speed" />
+          <label for="speedHalf">0.5×</label>
+          <input type="radio" id="speed1" name="speed" checked />
+          <label for="speed1">1×</label>
+          <input type="radio" id="speed2" name="speed" />
+          <label for="speed2">2×</label>
+          <input type="radio" id="speed5" name="speed" />
+          <label for="speed5">5×</label>
+        </div>
       </div>
     </div>
   </div>
@@ -310,6 +347,7 @@
 <script src="js/lambert.js"></script>
 <script src="js/simulate.js"></script>
 <script src="js/pso.js"></script>
+<script src="js/animation.js"></script>
 <script src="js/visualize.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -252,6 +252,114 @@ test('15 - mobile - trajetória renderiza com legend horizontal', async ({ page 
   await shoot(page, '15-mobile-trajetoria');
 });
 
+test('18 - shadow toggle mostra posição inicial de Marte e Vênus', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="swingBy"]');
+  await page.waitForTimeout(300);
+  await page.check('#toggleShadow');
+  await page.waitForTimeout(400);
+
+  const traceNames = await page.evaluate(() => {
+    const data = document.getElementById('plot').data;
+    return data.map((d) => d.name);
+  });
+  expect(traceNames).toContain('Marte (t=0)');
+  expect(traceNames).toContain('Vênus (t=0)');
+  expect(traceNames).toContain('Terra (t=0)');
+
+  await page.evaluate(() => document.getElementById('plot').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  await shoot(page, '18-shadow-positions');
+});
+
+test('19 - animation player: scrub muda posição da nave', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="direct"]');
+  await page.waitForTimeout(300);
+
+  // Vai pro meio da missão via scrubber
+  await page.evaluate(() => {
+    const s = document.getElementById('animTime');
+    s.value = '500';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+
+  const traceNames = await page.evaluate(() => {
+    const data = document.getElementById('plot').data;
+    return data.map((d) => d.name);
+  });
+  expect(traceNames).toContain('Nave');
+  expect(traceNames).toContain('Trajetória');
+
+  // Posição da nave a meio caminho não deve coincidir com a Terra
+  const craftPos = await page.evaluate(() => {
+    const data = document.getElementById('plot').data;
+    const craft = data.find((d) => d.name === 'Nave');
+    return craft ? { x: craft.x[0], y: craft.y[0] } : null;
+  });
+  expect(craftPos).not.toBeNull();
+  expect(Math.hypot(craftPos.x - 1, craftPos.y)).toBeGreaterThan(0.3);
+
+  await page.evaluate(() => document.getElementById('plot').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  await shoot(page, '19-anim-meio-da-missao');
+});
+
+test('20 - referencial geocêntrico: Terra fica fixa na origem', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="direct"]');
+  await page.waitForTimeout(300);
+  await page.click('label[for="frameGeo"]');
+  await page.waitForTimeout(400);
+
+  const earthPos = await page.evaluate(() => {
+    const data = document.getElementById('plot').data;
+    const e = data.find((d) => d.name === 'Terra');
+    return e ? { x: e.x[0], y: e.y[0] } : null;
+  });
+  expect(earthPos).not.toBeNull();
+  // Em geo, Terra fica na origem (0, 0)
+  expect(Math.abs(earthPos.x)).toBeLessThan(0.01);
+  expect(Math.abs(earthPos.y)).toBeLessThan(0.01);
+
+  await page.evaluate(() => document.getElementById('plot').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  await shoot(page, '20-frame-geocentrico');
+});
+
+test('21 - referencial sinódico: trajetória diferente do helio', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="direct"]');
+  await page.waitForTimeout(300);
+  await page.click('label[for="frameSyn"]');
+  await page.waitForTimeout(400);
+
+  const traceNames = await page.evaluate(() => {
+    const data = document.getElementById('plot').data;
+    return data.map((d) => d.name);
+  });
+  // No sinódico não temos as órbitas circulares; em vez disso temos "Caminho ..."
+  expect(traceNames.some((n) => n.startsWith('Caminho'))).toBe(true);
+
+  await page.evaluate(() => document.getElementById('plot').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  await shoot(page, '21-frame-sinodico');
+});
+
+test('22 - play da animação avança o tempo', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="direct"]');
+  await page.waitForTimeout(300);
+  // Reset
+  await page.click('#animReset');
+  await page.waitForTimeout(200);
+  // Play
+  await page.click('#animPlay');
+  await page.waitForTimeout(1500);
+  // O tempo deve ter avançado a partir de 0
+  const t = await page.evaluate(() => Anim.t);
+  expect(t).toBeGreaterThan(0);
+  // Para a animação
+  await page.click('#animPlay');
+  await shoot(page, '22-anim-playing');
+});
+
 test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
   await page.click('label[for="modeDirect"]');
   await page.waitForTimeout(200);
