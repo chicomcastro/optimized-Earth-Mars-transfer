@@ -562,27 +562,158 @@ function bindModeRadios() {
 // Porkchop — gera + click pra aplicar
 // ============================================================
 
+// ============================================================
+// Porkchop: modos de exploração disponíveis (5)
+// ============================================================
+const EXPLORATIONS = {
+  'direct-phase-time': {
+    label: 'Direta · fase Marte × tempo voo',
+    venusSwingBy: false,
+    xIdx: 0, yIdx: 1,
+    xKind: 'angle', yKind: 'days',
+    xMin: 0, xMax: 360, yMin: 120, yMax: 360,
+    xLabel: 'fase de Marte [°]', yLabel: 'tempo de voo T-M [d]',
+    fixedLabels: [],
+  },
+  'sb-phases': {
+    label: 'Swing-by · fase Marte × fase Vênus',
+    venusSwingBy: true,
+    xIdx: 0, yIdx: 1,
+    xKind: 'angle', yKind: 'angle',
+    xMin: 0, xMax: 360, yMin: 0, yMax: 360,
+    xLabel: 'fase de Marte [°]', yLabel: 'fase de Vênus [°]',
+    fixedLabels: ['T-V (dias)', 'V-M (dias)', 'r_p / R_SOI Vênus'],
+  },
+  'sb-times': {
+    label: 'Swing-by · T-V × V-M',
+    venusSwingBy: true,
+    xIdx: 2, yIdx: 3,
+    xKind: 'days', yKind: 'days',
+    xMin: 30, xMax: 180, yMin: 30, yMax: 240,
+    xLabel: 'T-V [dias]', yLabel: 'V-M [dias]',
+    fixedLabels: ['fase de Marte', 'fase de Vênus', 'r_p / R_SOI Vênus'],
+  },
+  'sb-venus-time': {
+    label: 'Swing-by · fase Vênus × T-V',
+    venusSwingBy: true,
+    xIdx: 1, yIdx: 2,
+    xKind: 'angle', yKind: 'days',
+    xMin: 0, xMax: 360, yMin: 30, yMax: 180,
+    xLabel: 'fase de Vênus [°]', yLabel: 'T-V [d]',
+    fixedLabels: ['fase de Marte', 'V-M (dias)', 'r_p / R_SOI Vênus'],
+  },
+  'sb-rp-venus': {
+    label: 'Swing-by · r_p × fase Vênus',
+    venusSwingBy: true,
+    xIdx: 4, yIdx: 1,
+    xKind: 'ratio', yKind: 'angle',
+    xMin: 0.015, xMax: 0.1, yMin: 0, yMax: 360,
+    xLabel: 'r_p / R_SOI Vênus', yLabel: 'fase de Vênus [°]',
+    fixedLabels: ['fase de Marte', 'T-V (dias)', 'V-M (dias)'],
+  },
+};
+
+let currentExploration = 'direct-phase-time';
+
+// Vetor base da exploração — usa os sliders atuais quando o modo bate,
+// senão usa o preset correspondente.
+function getBaseX(exploration) {
+  const e = EXPLORATIONS[exploration];
+  if ($("modeSwingBy").checked === e.venusSwingBy) {
+    return readInputs(e.venusSwingBy);
+  }
+  return (e.venusSwingBy ? PRESETS.swingBy : PRESETS.direct).x.slice();
+}
+
+function renderExplorationControls() {
+  const e = EXPLORATIONS[currentExploration];
+  // Atualiza select
+  const sel = $("porkchopExploration");
+  if (sel.value !== currentExploration) sel.value = currentExploration;
+
+  // Inputs X / Y
+  $("porkchopXLabel").textContent = e.xLabel;
+  $("porkchopYLabel").textContent = e.yLabel;
+  $("porkchopXMin").value = e.xMin;
+  $("porkchopXMax").value = e.xMax;
+  $("porkchopYMin").value = e.yMin;
+  $("porkchopYMax").value = e.yMax;
+
+  // Parâmetros fixos: mostra os valores atuais que serão usados
+  const baseX = getBaseX(currentExploration);
+  const fixedNames = defaultBounds(e.venusSwingBy).labels;
+  const fixedHtml = fixedNames.map((name, i) => {
+    if (i === e.xIdx || i === e.yIdx) return null;
+    let v = baseX[i];
+    let unit = '';
+    if (name.toLowerCase().includes('fase')) { v = radToDeg(v); unit = '°'; }
+    else if (name.toLowerCase().includes('dias')) { unit = ' d'; }
+    return `<span class="fixed-pill"><span class="fp-name">${name}</span> <b>${fmt(v, 2)}${unit}</b></span>`;
+  }).filter(Boolean).join('');
+  $("porkchopFixed").innerHTML = fixedHtml
+    ? `<span class="fp-label">com:</span> ${fixedHtml}`
+    : '';
+}
+
 function bindPorkchop() {
+  // Select de exploração
+  $("porkchopExploration").addEventListener("change", (e) => {
+    currentExploration = e.target.value;
+    renderExplorationControls();
+  });
+
+  // Reset ranges
+  $("porkchopReset").addEventListener("click", () => {
+    const e = EXPLORATIONS[currentExploration];
+    $("porkchopXMin").value = e.xMin;
+    $("porkchopXMax").value = e.xMax;
+    $("porkchopYMin").value = e.yMin;
+    $("porkchopYMax").value = e.yMax;
+  });
+
+  // Botão gerar
   $("btnPorkchop").addEventListener("click", () => {
     const btn = $("btnPorkchop");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> calculando...';
     setTimeout(() => {
-      plotPorkchop("porkchop", { N: 50, onClick: onPorkchopClick });
+      const e = EXPLORATIONS[currentExploration];
+      plotPorkchop("porkchop", {
+        exploration: e,
+        baseX: getBaseX(currentExploration),
+        xMin: parseFloat($("porkchopXMin").value),
+        xMax: parseFloat($("porkchopXMax").value),
+        yMin: parseFloat($("porkchopYMin").value),
+        yMax: parseFloat($("porkchopYMax").value),
+        N: parseInt($("porkchopN").value, 10) || 50,
+        title: `Porkchop · ${e.label} (clique para aplicar)`,
+        onClick: onPorkchopClick,
+      });
       btn.disabled = false;
-      btn.textContent = "↻ regerar porkchop";
+      btn.textContent = "↻ regerar";
       porkchopReady = true;
       $("porkchopHint").style.display = "flex";
     }, 20);
   });
+
+  // Inicializa controles
+  renderExplorationControls();
 }
 
 function onPorkchopClick(point) {
-  // point: { phaseDeg, tDays, cost }
-  // Aplica no simulador (modo direto), pulsa o cost, e dá scroll
-  $("modeDirect").checked = true;
-  $("modeSwingBy").checked = false;
-  renderInputs(false, [degToRad(point.phaseDeg), point.tDays]);
+  // Aplica os 2 params do porkchop, mantendo os fixos (lidos do simulador atual)
+  const e = EXPLORATIONS[currentExploration];
+
+  // Garante modo correto (swing-by ou direta)
+  $("modeSwingBy").checked = e.venusSwingBy;
+  $("modeDirect").checked = !e.venusSwingBy;
+
+  // Constrói vetor: parte do baseX, sobrescreve x e y
+  const newX = getBaseX(currentExploration);
+  newX[e.xIdx] = e.xKind === 'angle' ? degToRad(point.xValue) : point.xValue;
+  newX[e.yIdx] = e.yKind === 'angle' ? degToRad(point.yValue) : point.yValue;
+
+  renderInputs(e.venusSwingBy, newX);
   $$(".preset-btn").forEach((b) => b.classList.remove("active"));
   refreshScenario({ pulse: true });
 
@@ -590,7 +721,14 @@ function onPorkchopClick(point) {
   const top = target.getBoundingClientRect().top + window.scrollY - 10;
   window.scrollTo({ top, behavior: "smooth" });
 
-  showToast(`Aplicado: fase ${point.phaseDeg.toFixed(1)}°, t = ${point.tDays.toFixed(0)}d · ΔV ${fmt(point.cost, 2)} km/s`);
+  const formatVal = (v, kind) => {
+    if (kind === 'angle') return `${v.toFixed(1)}°`;
+    if (kind === 'days') return `${v.toFixed(0)} d`;
+    return v.toFixed(3);
+  };
+  showToast(
+    `Aplicado: ${formatVal(point.xValue, e.xKind)}, ${formatVal(point.yValue, e.yKind)} · ΔV ${fmt(point.cost, 2)} km/s`
+  );
 }
 
 // ============================================================
