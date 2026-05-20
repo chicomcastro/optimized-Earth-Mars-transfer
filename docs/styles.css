@@ -328,6 +328,49 @@ section ul { padding-left: 1.2rem; }
 .cost-display .cost-sub {
   margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.45rem;
 }
+.cost-warn {
+  margin-top: 0.6rem; padding: 0.5rem 0.7rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  font-size: 0.82rem; color: #fda4a4; line-height: 1.4;
+  display: flex; align-items: flex-start; gap: 0.45rem;
+}
+.cost-warn .warn-icon { font-size: 1rem; flex-shrink: 0; }
+.cost-display.degenerate .cost-value {
+  background: linear-gradient(135deg, var(--danger), #fda4a4);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Info button + tooltip nos parâmetros */
+.pc-info {
+  appearance: none; border: 1px solid var(--border-soft);
+  background: var(--bg-elev); color: var(--text-soft);
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 0.72rem; font-weight: 600; line-height: 1;
+  cursor: pointer; padding: 0; margin-left: 0.4rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+  transition: all var(--t-fast) var(--ease);
+}
+.pc-info:hover, .pc-info:focus {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+.tooltip-pop {
+  position: absolute; z-index: 100;
+  background: #0a0f24;
+  border: 1px solid var(--accent-soft);
+  border-radius: 8px; padding: 0.6rem 0.85rem;
+  font-size: 0.82rem; line-height: 1.45; color: var(--text);
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  opacity: 0; transform: translateY(4px);
+  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  pointer-events: none;
+}
+.tooltip-pop.show { opacity: 1; transform: translateY(0); }
 .deltaV-pill {
   font-size: 0.74rem; font-family: ui-monospace, monospace;
   padding: 0.25rem 0.55rem; border-radius: 999px;
@@ -512,6 +555,115 @@ input[type="range"]::-moz-range-thumb {
   .anim-player { gap: 0.4rem; padding: 0.45rem; }
   .anim-time { font-size: 0.7rem; min-width: 78px; }
 }
+
+/* ============================================================
+   PSO Result Card — destaque do melhor ΔV encontrado
+   ============================================================ */
+.pso-result {
+  margin-top: 1rem; padding: 0;
+  background:
+    radial-gradient(140% 100% at 0% 0%, rgba(247, 201, 72, 0.15), transparent 55%),
+    radial-gradient(140% 100% at 100% 100%, rgba(167, 139, 250, 0.18), transparent 55%),
+    var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  opacity: 0; transform: translateY(8px) scale(0.98);
+  max-height: 0;
+  transition:
+    opacity var(--t-slow) var(--ease),
+    transform var(--t-slow) var(--ease),
+    max-height var(--t-slow) var(--ease),
+    padding var(--t-slow) var(--ease);
+  pointer-events: none;
+}
+.pso-result.show {
+  opacity: 1; transform: translateY(0) scale(1);
+  max-height: 700px; padding: 1.1rem 1.2rem 1rem;
+  pointer-events: auto;
+  animation: psr-glow 1.2s var(--ease) 0.05s;
+}
+@keyframes psr-glow {
+  0% { box-shadow: 0 0 0 rgba(247, 201, 72, 0); }
+  30% { box-shadow: 0 0 30px rgba(247, 201, 72, 0.35), 0 0 60px rgba(167, 139, 250, 0.18); }
+  100% { box-shadow: 0 0 0 rgba(247, 201, 72, 0); }
+}
+.psr-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem;
+}
+.psr-badge {
+  font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f7c948, #fbbf24);
+  color: #07101a;
+  padding: 0.28rem 0.7rem; border-radius: 999px;
+  display: inline-flex; gap: 0.35rem; align-items: center;
+}
+.psr-delta {
+  font-family: ui-monospace, monospace; font-size: 0.78rem;
+  color: var(--muted); font-weight: 600;
+  padding: 0.25rem 0.55rem; border-radius: 999px;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+}
+.psr-delta.better { color: var(--ok); border-color: rgba(52, 211, 153, 0.35); }
+.psr-delta.worse { color: var(--danger); border-color: rgba(239, 68, 68, 0.35); }
+.psr-cost {
+  display: flex; align-items: baseline; gap: 0.45rem;
+  margin: 0.15rem 0 0.3rem;
+}
+.psr-value {
+  font-size: clamp(2.4rem, 8vw, 3.2rem);
+  font-weight: 800; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--warn), #fff);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+  animation: psr-pop 0.6s var(--ease) 0.1s backwards;
+}
+@keyframes psr-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.psr-unit { color: var(--muted); font-size: 1.05rem; font-weight: 500; }
+.psr-sub {
+  color: var(--muted); font-family: ui-monospace, monospace;
+  font-size: 0.78rem; margin-bottom: 0.7rem;
+}
+.psr-divider {
+  height: 1px; background: var(--border-soft); margin: 0.4rem 0 0.6rem;
+}
+.psr-params-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); font-weight: 600; margin-bottom: 0.35rem;
+}
+.psr-params {
+  display: grid; gap: 0.35rem 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 0.7rem;
+}
+.psr-param {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 0.35rem 0.6rem;
+  background: rgba(34, 211, 238, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  border-radius: 8px;
+}
+.psr-pname { font-size: 0.78rem; color: var(--text-soft); }
+.psr-pvalue {
+  font-family: ui-monospace, monospace; font-size: 0.88rem;
+  color: var(--accent); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.psr-note {
+  font-size: 0.78rem; color: var(--text-soft);
+  background: rgba(7, 9, 18, 0.4); padding: 0.55rem 0.75rem;
+  border-radius: 8px; border-left: 2px solid var(--accent);
+  line-height: 1.45;
+}
+.psr-note b { color: var(--text); }
 
 /* Container do plot principal com hint de interatividade */
 .plot-wrap {
