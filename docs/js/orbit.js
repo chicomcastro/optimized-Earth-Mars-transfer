@@ -25,25 +25,32 @@ function ang2vectors(a, b) {
   return t;
 }
 
-// Devolve função (nu) -> r para a cônica que passa por (r,v) sob μ
+// Devolve função (θ) -> r para a cônica que passa por (r, v) sob μ.
+// Usa vetor excentricidade pra eliminar a ambiguidade do acos: o periapsis
+// fica na direção do vetor e, sem ter que adivinhar o sinal.
+// θ é a coordenada angular cartesiana (medida a partir do eixo +x).
 function orbitaFromRV(r, v, mi) {
-  const energia = Vec.dot(v, v) / 2 - mi / Vec.norm(r);
-  const h = Vec.cross(r, v);
-  const theta = angularCoord(r);
-  const a = -mi / (2 * energia);
-  const p = Math.pow(Vec.norm(h), 2) / mi;
-  let e = Math.sqrt(Math.max(0, 1 - p / a));
-  let phi = theta - Math.acos((1 - (a * (1 - e * e)) / Vec.norm(r)) / e);
+  const rMag = Vec.norm(r);
+  const vMag = Vec.norm(v);
+  const h = Vec.cross(r, v); // momento angular específico
 
-  const b1 = Vec.scale(
-    Vec.cross(Vec.cross(r, v), r),
-    1 / Math.pow(Vec.norm(r), 2) / Vec.norm(v)
-  );
-  const b2 = Vec.scale(v, 1 / Vec.norm(v));
-  const alpha = ang2vectors(b1, b2);
-  if (alpha > Math.PI / 2) phi = Math.PI + phi;
+  // Vetor excentricidade: e_vec = ((|v|² - μ/|r|)·r - (r·v)·v) / μ
+  const rDotV = Vec.dot(r, v);
+  const term1 = Vec.scale(r, vMag * vMag - mi / rMag);
+  const term2 = Vec.scale(v, rDotV);
+  const eVec = Vec.scale(Vec.sub(term1, term2), 1 / mi);
+  const e = Vec.norm(eVec);
+  const p = Vec.dot(h, h) / mi; // semi-latus rectum
 
-  return (nu) => p / (1 - e * Math.cos(nu - phi));
+  // Periapsis: ângulo do vetor excentricidade (no plano xy)
+  // Se e ≈ 0 (órbita circular), φ é irrelevante; usa 0.
+  const phi = e > 1e-9 ? Math.atan2(eVec[1], eVec[0]) : 0;
+
+  // h_z indica sentido da órbita: positivo = CCW (prograda no plano xy)
+  // Se for retrograda (h_z < 0), o ν cresce na direção oposta.
+  const sgn = h[2] >= 0 ? 1 : -1;
+
+  return (theta) => p / (1 + e * Math.cos(sgn * (theta - phi)));
 }
 
 // Amostra a cônica e devolve [{x,y}]

@@ -14,13 +14,14 @@ const Vec = {
     const n = Math.hypot(a[0], a[1], a[2]);
     return n === 0 ? [0, 0, 0] : [a[0] / n, a[1] / n, a[2] / n];
   },
-  // Matriz de rotação no plano xy (eixo z)
+  // Matriz de rotação no plano xy (eixo z), anti-horária por +ang.
+  // Replica o "base * M(a)" do MATLAB, com M = [cos sin 0; -sin cos 0; 0 0 1]
   rotZ: (vec, ang) => {
     const c = Math.cos(ang),
       s = Math.sin(ang);
     return [
-      vec[0] * c + vec[1] * s,
-      -vec[0] * s + vec[1] * c,
+      vec[0] * c - vec[1] * s,
+      vec[0] * s + vec[1] * c,
       vec[2],
     ];
   },

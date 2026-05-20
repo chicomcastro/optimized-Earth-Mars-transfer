@@ -252,6 +252,39 @@ test('15 - mobile - trajetória renderiza com legend horizontal', async ({ page 
   await shoot(page, '15-mobile-trajetoria');
 });
 
+test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
+  await page.click('label[for="modeDirect"]');
+  await page.waitForTimeout(200);
+  // Aplica fase=110°, t=213d
+  await page.evaluate(() => {
+    const setSlider = (idx, v) => {
+      const s = document.querySelector(`#paramInputs .param-control[data-idx="${idx}"] .pc-slider`);
+      s.value = String(v);
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    setSlider(0, 110);
+    setSlider(1, 213);
+  });
+  await page.waitForTimeout(400);
+
+  // Marte deve estar no quadrante 2 (x<0, y>0); leitura via Plotly data
+  const marsPos = await page.evaluate(() => {
+    const div = document.getElementById('plot');
+    const data = div.data || div._fullData;
+    const marsTrace = data.find((t) => Array.isArray(t.text) && t.text.includes && t.text.includes('Marte'))
+      || data.find((t) => t.name === 'Marte');
+    return marsTrace ? { x: marsTrace.x[0], y: marsTrace.y[0] } : null;
+  });
+  expect(marsPos).not.toBeNull();
+  expect(marsPos.x).toBeLessThan(0);     // esquerda
+  expect(marsPos.y).toBeGreaterThan(0);  // cima
+
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.querySelector('#plot').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(400);
+  await shoot(page, '17-marte-quadrante-correto');
+});
+
 test('16 - mobile - porkchop click flow', async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
