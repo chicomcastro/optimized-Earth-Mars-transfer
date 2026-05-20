@@ -154,14 +154,17 @@
 
   <div class="card">
     <div class="controls-row">
-      <label>partículas <input type="number" id="psoParticles" value="200" min="10" max="5000" /></label>
-      <label>iterações <input type="number" id="psoIterations" value="60" min="5" max="500" /></label>
+      <label>partículas <input type="number" id="psoParticles" value="200" min="10" step="any" /></label>
+      <label>iterações <input type="number" id="psoIterations" value="60" min="5" step="any" /></label>
       <button class="btn btn-primary" id="btnRun">▶ rodar PSO</button>
       <button class="btn btn-danger" id="btnStop" disabled>■ parar</button>
     </div>
+    <div class="status-line" id="psoStatus">pronto · clique "rodar PSO" para iniciar</div>
     <div class="progress"><div id="psoProgressBar"></div></div>
-    <div class="status-line" id="psoStatus">pronto</div>
     <div id="convergence" class="plot plot-small"></div>
+
+    <!-- Card de resultado destacado (preenchido ao final do PSO) -->
+    <div id="psoResult" class="pso-result"></div>
   </div>
 </section>
 

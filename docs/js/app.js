@@ -3,11 +3,15 @@
 // porkchop clicável e navegação ativa por scroll-spy.
 // ============================================================
 
+// Pontos de partida — melhores configurações encontradas via PSO neste código.
+// IMPORTANTE: são *sub-ótimas*. O espaço de busca é grande e multimodal;
+// podem existir melhores não exploradas — rode o PSO com mais partículas/iterações.
 const PRESETS = {
   swingBy: {
-    label: "Swing-by por Vênus (ótimo PSO)",
+    label: "Swing-by por Vênus (sub-ótimo encontrado)",
     venusSwingBy: true,
-    x: [6.1836, 3.1398, 120.76, 215.14, 0.0943],
+    // ΔV ≈ 7.97 km/s — melhor após múltiplos restarts (1500 part × 300 iter × 8 runs)
+    x: [6.2824, 3.1416, 121.25, 217.24, 0.0675],
   },
   swingByAlt: {
     label: "Swing-by exploratório",
@@ -15,8 +19,9 @@ const PRESETS = {
     x: [Math.PI, Math.PI / 2, 150, 200, 0.05],
   },
   direct: {
-    label: "Direta (Hohmann)",
+    label: "Direta (Hohmann clássica)",
     venusSwingBy: false,
+    // ΔV ≈ 5.71 km/s — Hohmann é o ótimo global pra esse caso direto
     x: [Math.PI, 258.8],
   },
 };
@@ -62,7 +67,9 @@ function renderInputs(venusSwingBy, values) {
       const dLo = isAngle ? radToDeg(lo) : lo;
       const dHi = isAngle ? radToDeg(hi) : hi;
       const dVal = isAngle ? radToDeg(values[i]) : values[i];
-      const step = isAngle ? 0.5 : isTime ? 0.5 : 0.001;
+      // step pequeno: o slider tem ~1000px de range, 0.01 dá precisão visual suficiente
+      // e não corrompe presets do PSO com mais precisão
+      const step = isAngle ? 0.01 : isTime ? 0.01 : 0.0001;
       const decimals = isAngle ? 2 : isTime ? 1 : 4;
 
       return `
@@ -372,14 +379,30 @@ function applyPreset(key, opts = {}) {
 // PSO
 // ============================================================
 
+let lastPSOResult = null; // pra mostrar comparação no próximo run
+
 async function runPSO() {
   const venusSwingBy = $("modeSwingBy").checked;
   const N = parseInt($("psoParticles").value, 10) || 200;
   const maxIter = parseInt($("psoIterations").value, 10) || 60;
   convergenceHistory = [];
 
+  // Avisa se N for muito alto (consumo de memória)
+  if (N > 100_000) {
+    const ok = window.confirm(
+      `Você pediu ${N.toLocaleString()} partículas. ` +
+      `Isso pode consumir bastante memória (>100 MB) e congelar o navegador por alguns segundos. ` +
+      `Continuar mesmo assim?`
+    );
+    if (!ok) return;
+  }
+
   if (currentRun) currentRun.stop();
 
+  // Esconde card de resultado anterior; aparecerá só ao final do novo run
+  $("psoResult").classList.remove("show");
+
+  const t0 = performance.now();
   const pso = new PSO({
     numParticles: N,
     maxIteration: maxIter,
@@ -387,7 +410,7 @@ async function runPSO() {
     onProgress: (st) => {
       convergenceHistory = st.history;
       $("psoStatus").textContent =
-        `iter ${st.iteration}/${st.maxIteration} · melhor ΔV = ${fmt(st.bestGlobalCost, 3)} km/s`;
+        `iter ${st.iteration}/${st.maxIteration} · melhor até agora: ${fmt(st.bestGlobalCost, 3)} km/s`;
       $("psoProgressBar").style.width =
         `${(st.iteration / st.maxIteration) * 100}%`;
       plotConvergence("convergence", convergenceHistory);
@@ -397,19 +420,89 @@ async function runPSO() {
   $("btnRun").disabled = true;
   $("btnRun").innerHTML = '<span class="spinner"></span> rodando...';
   $("btnStop").disabled = false;
-  $("psoStatus").textContent = "executando PSO...";
+  $("psoStatus").textContent = `iniciando ${N.toLocaleString()} partículas × ${maxIter} iterações...`;
 
   const result = await pso.run({ chunkMs: 50 });
+  const elapsed = (performance.now() - t0) / 1000;
 
   $("btnRun").disabled = false;
   $("btnRun").textContent = "▶ rodar PSO";
   $("btnStop").disabled = true;
-  $("psoStatus").textContent =
-    `finalizado · melhor ΔV = ${fmt(result.bestGlobalCost, 3)} km/s em ${result.iteration} iter`;
+  $("psoStatus").textContent = "—";
+
+  // Aplica no simulador
   renderInputs(venusSwingBy, result.bestGlobal.slice());
   refreshScenario({ pulse: true });
-  showToast(`PSO terminou — melhor ΔV: ${fmt(result.bestGlobalCost, 3)} km/s`);
+
+  // Renderiza card de resultado destacado
+  showPSOResult({
+    cost: result.bestGlobalCost,
+    x: result.bestGlobal,
+    venusSwingBy,
+    iterations: result.iteration,
+    particles: N,
+    elapsed,
+    prev: lastPSOResult,
+  });
+
+  lastPSOResult = { cost: result.bestGlobalCost, venusSwingBy };
   currentRun = null;
+}
+
+function showPSOResult({ cost, x, venusSwingBy, iterations, particles, elapsed, prev }) {
+  const card = $("psoResult");
+  const paramNames = defaultBounds(venusSwingBy).labels;
+  const paramRows = paramNames.map((name, i) => {
+    let val = x[i];
+    let unit = "";
+    if (name.toLowerCase().includes("fase")) {
+      val = radToDeg(val);
+      unit = "°";
+    } else if (name.toLowerCase().includes("dias")) {
+      unit = " d";
+    }
+    return `<div class="psr-param">
+      <span class="psr-pname">${name}</span>
+      <span class="psr-pvalue">${fmt(val, 3)}${unit}</span>
+    </div>`;
+  }).join("");
+
+  // Comparação opcional vs run anterior do mesmo modo
+  let delta = "";
+  if (prev && prev.venusSwingBy === venusSwingBy && isFinite(prev.cost)) {
+    const diff = cost - prev.cost;
+    if (Math.abs(diff) > 1e-4) {
+      const sign = diff < 0 ? "▼" : "▲";
+      const cls = diff < 0 ? "better" : "worse";
+      delta = `<span class="psr-delta ${cls}">${sign} ${Math.abs(diff).toFixed(3)} km/s vs último</span>`;
+    } else {
+      delta = `<span class="psr-delta">= último run</span>`;
+    }
+  }
+
+  card.innerHTML = `
+    <div class="psr-head">
+      <span class="psr-badge">🏆 melhor encontrado</span>
+      ${delta}
+    </div>
+    <div class="psr-cost">
+      <span class="psr-value">${fmt(cost, 3)}</span>
+      <span class="psr-unit">km/s</span>
+    </div>
+    <div class="psr-sub">
+      ${particles.toLocaleString()} partículas · ${iterations} iter · ${elapsed.toFixed(1)} s
+    </div>
+    <div class="psr-divider"></div>
+    <div class="psr-params-label">Parâmetros ótimos</div>
+    <div class="psr-params">${paramRows}</div>
+    <div class="psr-note">
+      Aplicado no simulador ✓ — role para cima pra ver a trajetória.
+      Lembre: este é o <b>melhor de N runs</b>, não o ótimo global garantido.
+      Rode mais vezes pra explorar outras bacias.
+    </div>
+  `;
+  // trigger CSS transition
+  requestAnimationFrame(() => card.classList.add("show"));
 }
 
 function stopPSO() {

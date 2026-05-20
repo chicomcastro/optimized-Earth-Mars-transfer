@@ -117,14 +117,14 @@ test('05 - PSO direto converge', async ({ page }) => {
 
   await page.click('#btnRun');
   await page.waitForFunction(
-    () => /finalizado/i.test(document.getElementById('psoStatus').textContent),
+    () => document.getElementById('psoResult').classList.contains('show'),
     { timeout: 30_000 }
   );
 
-  const status = await page.locator('#psoStatus').textContent();
-  const m = status.match(/melhor ΔV\s*=\s*([\d.]+)/);
-  expect(m).not.toBeNull();
-  expect(parseFloat(m[1])).toBeLessThan(7);
+  // Lê o ΔV do card de resultado
+  const dvText = await page.locator('#psoResult .psr-value').textContent();
+  const dv = parseFloat(dvText);
+  expect(dv).toBeLessThan(7);
 
   await page.locator('#otimizacao').scrollIntoViewIfNeeded();
   await shoot(page, '05-pso-direto-convergido');
@@ -138,12 +138,12 @@ test('06 - PSO swing-by converge', async ({ page }) => {
   await page.fill('#psoIterations', '25');
   await page.click('#btnRun');
   await page.waitForFunction(
-    () => /finalizado/i.test(document.getElementById('psoStatus').textContent),
+    () => document.getElementById('psoResult').classList.contains('show'),
     { timeout: 45_000 }
   );
 
-  const status = await page.locator('#psoStatus').textContent();
-  expect(status).toMatch(/melhor ΔV/);
+  const dvText = await page.locator('#psoResult .psr-value').textContent();
+  expect(parseFloat(dvText)).toBeGreaterThan(0);
 
   await page.locator('#otimizacao').scrollIntoViewIfNeeded();
   await shoot(page, '06-pso-swing-by-convergido');
@@ -360,6 +360,65 @@ test('22 - play da animação avança o tempo', async ({ page }) => {
   await shoot(page, '22-anim-playing');
 });
 
+test('23 - input partículas aceita > 5000 sem tooltip de erro', async ({ page }) => {
+  // O input não deve ter o attr max
+  const hasMax = await page.evaluate(() => {
+    const el = document.getElementById('psoParticles');
+    return el.hasAttribute('max');
+  });
+  expect(hasMax).toBe(false);
+
+  // Aceita 20000 sem reclamar
+  await page.fill('#psoParticles', '20000');
+  const valid = await page.evaluate(() => document.getElementById('psoParticles').checkValidity());
+  expect(valid).toBe(true);
+});
+
+test('24 - PSO mostra card de resultado destacado ao final', async ({ page }) => {
+  await page.click('label[for="modeDirect"]');
+  await page.fill('#psoParticles', '60');
+  await page.fill('#psoIterations', '20');
+  await page.click('#btnRun');
+  await page.waitForFunction(
+    () => document.getElementById('psoResult').classList.contains('show'),
+    { timeout: 30_000 }
+  );
+
+  // Card deve mostrar ΔV, parâmetros e nota
+  const cardText = await page.locator('#psoResult').textContent();
+  expect(cardText).toMatch(/melhor encontrado/i);
+  expect(cardText).toMatch(/km\/s/);
+  expect(cardText).toMatch(/parâmetros ótimos/i);
+  expect(cardText).toMatch(/fase de Marte/);
+  expect(cardText).toMatch(/sub-?ótimo|não.* (?:ótimo|garantido)/i);
+
+  await page.evaluate(() => document.getElementById('psoResult').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(500);
+  await shoot(page, '24-pso-result-card');
+});
+
+test('25 - segundo PSO mostra delta vs anterior', async ({ page }) => {
+  await page.click('label[for="modeDirect"]');
+  await page.fill('#psoParticles', '60');
+  await page.fill('#psoIterations', '20');
+  await page.click('#btnRun');
+  await page.waitForFunction(
+    () => document.getElementById('psoResult').classList.contains('show'),
+    { timeout: 30_000 }
+  );
+
+  // Roda de novo
+  await page.click('#btnRun');
+  await page.waitForFunction(
+    () => document.getElementById('psoResult').classList.contains('show'),
+    { timeout: 30_000 }
+  );
+  await page.waitForTimeout(400);
+  const cardText = await page.locator('#psoResult').textContent();
+  // Deve ter um delta ('=' ou ▼/▲)
+  expect(cardText).toMatch(/[=▼▲]/);
+});
+
 test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
   await page.click('label[for="modeDirect"]');
   await page.waitForTimeout(200);
@@ -426,7 +485,7 @@ test('14 - PSO mostra convergência completa', async ({ page }) => {
   await page.fill('#psoIterations', '40');
   await page.click('#btnRun');
   await page.waitForFunction(
-    () => /finalizado/i.test(document.getElementById('psoStatus').textContent),
+    () => document.getElementById('psoResult').classList.contains('show'),
     { timeout: 30_000 }
   );
   await page.waitForTimeout(400);
