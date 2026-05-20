@@ -56,6 +56,7 @@ class PSO {
     this.particles = [];
     this.iteration = 0;
     this._stop = false;
+    this.history = []; // melhor custo por iteração
 
     for (let i = 0; i < numParticles; i++) {
       const xi = randomUniform(this.lb, this.ub);
@@ -104,6 +105,7 @@ class PSO {
       this.bestGlobal = bestIteration;
     }
     this.iteration += 1;
+    this.history.push(this.bestGlobalCost);
   }
 
   // Roda assíncrono em chunks
@@ -123,6 +125,7 @@ class PSO {
           maxIteration: this.maxIteration,
           bestGlobal: this.bestGlobal,
           bestGlobalCost: this.bestGlobalCost,
+          history: this.history,
         });
       }
       // ceder thread

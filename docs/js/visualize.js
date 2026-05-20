@@ -56,22 +56,35 @@ function plotTrajectory(divId, sim, opts = {}) {
   });
 
   const lim = opts.lim || 1.7;
+  const isNarrow = window.innerWidth < 820;
   const layout = {
-    paper_bgcolor: "#0b1020",
-    plot_bgcolor: "#0b1020",
-    font: { color: "#e6edf3" },
+    paper_bgcolor: "#070912",
+    plot_bgcolor: "#070912",
+    font: { color: "#e8eefb", size: 11 },
     xaxis: {
       title: "x [UA]", range: [-lim, lim],
-      gridcolor: "#1f2937", zerolinecolor: "#374151", scaleanchor: "y", scaleratio: 1,
+      gridcolor: "#1d2742", zerolinecolor: "#2c3a66", scaleanchor: "y", scaleratio: 1,
     },
     yaxis: {
       title: "y [UA]", range: [-lim, lim],
-      gridcolor: "#1f2937", zerolinecolor: "#374151",
+      gridcolor: "#1d2742", zerolinecolor: "#2c3a66",
     },
-    margin: { t: 30, l: 60, r: 20, b: 50 },
+    margin: isNarrow
+      ? { t: 30, l: 40, r: 12, b: 70 }
+      : { t: 30, l: 50, r: 12, b: 40 },
     showlegend: true,
-    legend: { bgcolor: "rgba(11,16,32,0.6)", bordercolor: "#1f2937", borderwidth: 1 },
-    title: { text: opts.title || "Cônicas da trajetória", font: { size: 14 } },
+    legend: isNarrow
+      ? {
+          bgcolor: "rgba(7,9,18,0.7)", bordercolor: "#1d2742", borderwidth: 1,
+          font: { size: 9 }, orientation: "h",
+          x: 0.5, xanchor: "center", y: -0.18, yanchor: "top",
+        }
+      : {
+          bgcolor: "rgba(7,9,18,0.7)", bordercolor: "#1d2742", borderwidth: 1,
+          font: { size: 10 }, orientation: "v",
+          x: 1.02, xanchor: "left", y: 1, yanchor: "top",
+        },
+    title: { text: opts.title || "Cônicas da trajetória", font: { size: 13 } },
   };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
@@ -83,19 +96,20 @@ function plotConvergence(divId, history) {
     y: history,
     mode: "lines+markers",
     type: "scatter",
-    line: { color: "#22d3ee", width: 2 },
-    marker: { size: 4 },
-    name: "Melhor custo",
+    line: { color: "#22d3ee", width: 2, shape: "spline" },
+    marker: { size: 5, color: "#a78bfa" },
+    fill: "tozeroy",
+    fillcolor: "rgba(34, 211, 238, 0.08)",
+    name: "Melhor ΔV",
   };
   const layout = {
-    paper_bgcolor: "#0b1020",
-    plot_bgcolor: "#0b1020",
-    font: { color: "#e6edf3" },
-    xaxis: { title: "Iteração", gridcolor: "#1f2937" },
-    yaxis: { title: "ΔV [km/s]", gridcolor: "#1f2937" },
-    margin: { t: 30, l: 60, r: 20, b: 50 },
+    paper_bgcolor: "#070912",
+    plot_bgcolor: "#070912",
+    font: { color: "#e8eefb", size: 11 },
+    xaxis: { title: "Iteração", gridcolor: "#1d2742" },
+    yaxis: { title: "ΔV [km/s]", gridcolor: "#1d2742" },
+    margin: { t: 24, l: 50, r: 12, b: 40 },
     showlegend: false,
-    title: { text: "Convergência do PSO", font: { size: 14 } },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 }
@@ -119,19 +133,35 @@ function plotPorkchop(divId, opts = {}) {
     }
     z.push(row);
   }
+  const phaseDeg = phases.map((p) => (p * 180) / Math.PI);
   const trace = {
-    z, x: phases.map((p) => (p * 180) / Math.PI), y: times,
+    z, x: phaseDeg, y: times,
     type: "contour", colorscale: "Viridis",
     contours: { coloring: "heatmap" },
-    colorbar: { title: "ΔV [km/s]" },
+    colorbar: { title: "ΔV [km/s]", thickness: 14 },
+    hovertemplate: "fase Marte: %{x:.1f}°<br>t = %{y:.0f} d<br>ΔV = %{z:.2f} km/s<extra></extra>",
   };
   const layout = {
-    paper_bgcolor: "#0b1020", plot_bgcolor: "#0b1020",
-    font: { color: "#e6edf3" },
-    xaxis: { title: "fase de Marte [graus]", gridcolor: "#1f2937" },
-    yaxis: { title: "tempo de transferência [dias]", gridcolor: "#1f2937" },
-    title: { text: "Porkchop plot: Terra → Marte direto", font: { size: 14 } },
-    margin: { t: 40, l: 70, r: 60, b: 50 },
+    paper_bgcolor: "#070912", plot_bgcolor: "#070912",
+    font: { color: "#e8eefb", size: 11 },
+    xaxis: { title: "fase de Marte [°]", gridcolor: "#1d2742" },
+    yaxis: { title: "tempo de voo [d]", gridcolor: "#1d2742" },
+    title: { text: "Porkchop — Terra → Marte (clique para aplicar)", font: { size: 13 } },
+    margin: { t: 40, l: 56, r: 60, b: 50 },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
+
+  // Click handler — aplica params no simulador
+  if (opts.onClick) {
+    const div = document.getElementById(divId);
+    div.on("plotly_click", (data) => {
+      if (!data.points || data.points.length === 0) return;
+      const p = data.points[0];
+      opts.onClick({
+        phaseDeg: p.x,
+        tDays: p.y,
+        cost: p.z,
+      });
+    });
+  }
 }

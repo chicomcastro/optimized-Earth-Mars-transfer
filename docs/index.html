@@ -2,9 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Transferência Terra–Marte otimizada · Simulador interativo</title>
-  <meta name="description" content="Versão web do simulador de transferência interplanetária Terra-Marte, com swing-by por Vênus e otimização via PSO. Porte JavaScript do projeto MATLAB MVO-41." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#070912" />
+  <title>Transferência Terra–Marte · simulador interativo</title>
+  <meta name="description" content="Versão web do simulador de transferência interplanetária Terra-Marte, com swing-by por Vênus e otimização via PSO." />
   <link rel="stylesheet" href="styles.css" />
   <script src="js/plotly.min.js"></script>
 </head>
@@ -14,167 +15,104 @@
   <div class="hero-inner">
     <h1>Transferência <span class="accent">Terra → Marte</span> otimizada</h1>
     <p class="lead">
-      Simulador interativo de transferência interplanetária com e sem
-      <em>swing-by</em> por Vênus, otimizado por <strong>Particle Swarm
-      Optimization</strong>. Porte em JavaScript do código MATLAB original
-      (problema de Lambert + PSO), executando inteiramente no navegador.
+      Simulador interativo com Lambert + PSO. Edite parâmetros e veja o
+      ΔV/trajetória em tempo real. Compare swing-by por Vênus vs transferência direta.
     </p>
-    <p class="meta">
-      Trabalho final · MVO-41 · ITA · 2020 — versão web 2026
-    </p>
+    <div class="meta">
+      <span>MVO-41 · ITA</span> <span class="dot"></span>
+      <span>2020 → web 2026</span> <span class="dot"></span>
+      <a href="https://github.com/chicomcastro/optimized-Earth-Mars-transfer">código no GitHub</a>
+    </div>
   </div>
 </header>
 
-<nav class="tabs">
+<nav class="tabs" id="topNav">
   <ul>
-    <li><a href="#problema">Problema</a></li>
-    <li><a href="#metodo">Método</a></li>
-    <li><a href="#simulador">Simulador</a></li>
-    <li><a href="#otimizacao">Otimização PSO</a></li>
-    <li><a href="#exploracao">Exploração</a></li>
-    <li><a href="#resultados">Resultados</a></li>
-    <li><a href="#referencias">Referências</a></li>
+    <li><a href="#simulador" data-target="simulador">Simulador</a></li>
+    <li><a href="#exploracao" data-target="exploracao">Porkchop</a></li>
+    <li><a href="#otimizacao" data-target="otimizacao">PSO</a></li>
+    <li><a href="#problema" data-target="problema">Problema</a></li>
+    <li><a href="#metodo" data-target="metodo">Método</a></li>
+    <li><a href="#resultados" data-target="resultados">Resultados</a></li>
+    <li><a href="#referencias" data-target="referencias">Refs</a></li>
   </ul>
 </nav>
 
 <main>
 
-<section id="problema">
-  <h2>Problema</h2>
+<!-- SIMULADOR — primeiro pra ser o foco -->
+<section id="simulador" class="reveal">
+  <h2>Simulador</h2>
   <p>
-    O objetivo é minimizar o custo total de uma transferência da
-    Terra para Marte, medido em <code>ΔV</code> total (km/s). Comparamos
-    duas estratégias:
-  </p>
-  <div class="grid">
-    <div class="card">
-      <h3>Transferência direta</h3>
-      <ul>
-        <li>Espaçonave deixa uma órbita de estacionamento ao redor da Terra (h = 200 km).</li>
-        <li>Uma única órbita heliocêntrica de transferência até Marte.</li>
-        <li>Captura em órbita ao redor de Marte (h = 200 km).</li>
-        <li>Parâmetros: fase de Marte na partida e tempo de voo.</li>
-      </ul>
-      <figure>
-        <img src="figures/modelo-transferencia-direta.png" alt="Diagrama transferência direta" />
-      </figure>
-    </div>
-    <div class="card">
-      <h3>Swing-by por Vênus</h3>
-      <ul>
-        <li>Transferência Terra → Vênus (Lambert).</li>
-        <li>Sobrevôo (gravity assist) em Vênus — sem custo de propelente, apenas deflexão.</li>
-        <li>Transferência Vênus → Marte (Lambert).</li>
-        <li>Captura em Marte.</li>
-        <li>Parâmetros: fase de Vênus, fase de Marte, t<sub>TV</sub>, t<sub>VM</sub>, periapsis do swing-by.</li>
-      </ul>
-      <figure>
-        <img src="figures/diagrama-transferencia-swing-by.png" alt="Diagrama swing-by por Vênus" />
-      </figure>
-    </div>
-  </div>
-
-  <h3>Hipóteses</h3>
-  <ul>
-    <li>Órbitas planetárias circulares e coplanares (problema 2D).</li>
-    <li>Patched conics: dentro da SOI de cada corpo, considera-se apenas sua gravidade.</li>
-    <li>Manobras impulsivas (instantâneas) — não há propulsão contínua.</li>
-    <li>Para o swing-by: aproxima-se a passagem como uma deflexão simples no plano,
-      sem mudança de magnitude de v<sub>∞</sub>.</li>
-  </ul>
-</section>
-
-<section id="metodo">
-  <h2>Método</h2>
-
-  <h3>1. Problema de Lambert</h3>
-  <p>
-    Dado um par de posições <strong>r₁</strong> e <strong>r₂</strong> e um tempo de
-    voo <em>tf</em>, encontrar a órbita kepleriana que conecta os pontos. Implementação
-    usada: <strong>algoritmo de Izzo</strong> (Newton–Raphson rápido sobre a variável
-    log(1+cos(α/2))), com fallback para <strong>Lancaster–Blanchard</strong> com
-    melhorias de Gooding — portado a partir do código de Rody Oldenhuis.
-  </p>
-  <div class="formula">
-    [V₁, V₂] = Lambert(r₁, r₂, tf, m, μ)
-  </div>
-
-  <h3>2. Modelagem das manobras</h3>
-  <p>Na <strong>saída da Terra</strong>:</p>
-  <div class="formula">
-    v∞ = V₁ − v<sub>terra/sol</sub> &nbsp;&nbsp;|&nbsp;&nbsp;
-    v<sub>partida</sub> = √(|v∞|² + 2μ<sub>⊕</sub>/R<sub>órbita</sub>)
-  </div>
-  <p>Na <strong>chegada a Marte</strong>:</p>
-  <div class="formula">
-    v∞ = V<sub>chegada</sub> − v<sub>marte/sol</sub> &nbsp;&nbsp;|&nbsp;&nbsp;
-    ΔV<sub>captura</sub> = |v<sub>p</sub> − v<sub>circ,marte</sub>|
-  </div>
-  <p>No <strong>swing-by de Vênus</strong>, a deflexão é:</p>
-  <div class="formula">
-    sin(δ) = 1 / (1 + r<sub>p</sub>·|v|/μ<sub>♀</sub>)
-  </div>
-
-  <h3>3. Função-custo</h3>
-  <p>
-    A função-custo é simplesmente a soma dos ΔV impulsivos da missão.
-    O vetor de decisão <strong>x</strong> tem:
-  </p>
-  <ul>
-    <li><strong>Sem swing-by:</strong> [fase de Marte, t<sub>TM</sub>]</li>
-    <li><strong>Com swing-by:</strong> [fase de Marte, fase de Vênus, t<sub>TV</sub>, t<sub>VM</sub>, r<sub>p</sub>/R<sub>SOI</sub>]</li>
-  </ul>
-
-  <h3>4. Otimização — Particle Swarm Optimization</h3>
-  <p>
-    Como o espaço é multimodal (e descontínuo nas bordas onde Lambert falha),
-    usamos PSO. Cada partícula atualiza sua velocidade segundo:
-  </p>
-  <div class="formula">
-    v ← w·v + φ<sub>p</sub>·r<sub>p</sub>·(p<sub>best</sub> − x) + φ<sub>g</sub>·r<sub>g</sub>·(g<sub>best</sub> − x)
-  </div>
-  <p>com w=0.9, φ<sub>p</sub>=0.6, φ<sub>g</sub>=0.8 (mesmos hiperparâmetros do MATLAB).</p>
-</section>
-
-<section id="simulador">
-  <h2>Simulador interativo</h2>
-  <p>
-    Edite os parâmetros à direita e veja a trajetória atualizar em tempo real.
-    O ΔV total é calculado usando exatamente as mesmas equações do código MATLAB
-    original.
+    Edite os parâmetros e veja o ΔV recalcular em tempo real. Os
+    sliders dão controle fino; clique no valor pra digitar o número exato.
   </p>
 
   <div class="card">
     <div class="controls-row">
-      <div class="mode-toggle">
-        <label><input type="radio" id="modeSwingBy" name="mode" checked /> Swing-by por Vênus</label>
-        <label><input type="radio" id="modeDirect" name="mode" /> Direta Terra → Marte</label>
+      <div class="segmented">
+        <input type="radio" id="modeSwingBy" name="mode" checked />
+        <label for="modeSwingBy"><span>↪ via Vênus</span></label>
+        <input type="radio" id="modeDirect" name="mode" />
+        <label for="modeDirect"><span>→ direta</span></label>
       </div>
-      <span style="flex: 1"></span>
-      <button class="btn preset-btn" data-preset="swingBy">preset: melhor swing-by</button>
-      <button class="btn preset-btn" data-preset="swingByAlt">preset: swing-by exploratório</button>
-      <button class="btn preset-btn" data-preset="direct">preset: melhor direta</button>
+    </div>
+    <div class="chip-row" id="presetRow">
+      <button class="chip preset-btn" data-preset="swingBy">⭐ melhor swing-by</button>
+      <button class="chip preset-btn" data-preset="swingByAlt">swing-by exploratório</button>
+      <button class="chip preset-btn" data-preset="direct">⭐ melhor direta</button>
     </div>
   </div>
 
-  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="simulator-grid">
     <div class="card">
-      <h3 style="margin-top: 0">Parâmetros da trajetória</h3>
+      <div class="cost-display" id="costDisplay">
+        <span class="cost-label">ΔV total estimado</span>
+        <div>
+          <span class="cost-value" id="costValue">—</span>
+          <span class="cost-unit">km/s</span>
+        </div>
+        <div class="cost-sub" id="costSub"></div>
+      </div>
+
       <div id="paramInputs"></div>
-      <div id="results" class="results"></div>
     </div>
-    <div class="card">
-      <div id="plot" class="plot"></div>
+
+    <div class="card" style="padding: 0.5rem; display: flex; flex-direction: column;">
+      <div class="plot-wrap" style="flex: 1;">
+        <div id="plot" class="plot"></div>
+        <div class="plot-hint">arraste para girar · scroll para zoom</div>
+      </div>
     </div>
   </div>
 </section>
 
-<section id="otimizacao">
+<!-- EXPLORAÇÃO / PORKCHOP -->
+<section id="exploracao" class="reveal">
+  <h2>Exploração: porkchop plot</h2>
+  <p>
+    Mapa de custo da transferência direta Terra → Marte em função da
+    fase de Marte e do tempo de voo. <strong>Clique em qualquer ponto</strong>
+    para aplicar esses parâmetros no simulador e ver a trajetória.
+  </p>
+  <div class="card">
+    <div class="controls-row">
+      <button class="btn btn-primary" id="btnPorkchop">▶ gerar porkchop</button>
+      <span class="status-line">~50×50 amostras · alguns segundos</span>
+    </div>
+    <div class="plot-wrap">
+      <div id="porkchop" class="plot"></div>
+      <div class="plot-hint" id="porkchopHint" style="display: none;">clique para aplicar</div>
+    </div>
+  </div>
+</section>
+
+<!-- PSO -->
+<section id="otimizacao" class="reveal">
   <h2>Otimização ao vivo (PSO)</h2>
   <p>
-    Lance o enxame de partículas e veja a convergência. A otimização roda
-    em chunks assíncronos para não travar a UI — você pode interromper a qualquer
-    momento. O modo selecionado acima é respeitado.
+    Lance o enxame e veja a convergência em tempo real. Roda em chunks
+    assíncronos sem travar a UI. O modo atual (acima) é respeitado.
   </p>
 
   <div class="card">
@@ -190,55 +128,106 @@
   </div>
 </section>
 
-<section id="exploracao">
-  <h2>Exploração: porkchop plot</h2>
+<!-- PROBLEMA -->
+<section id="problema" class="reveal">
+  <h2>Problema</h2>
   <p>
-    Mapa de custo para a transferência direta Terra → Marte em função da
-    fase de Marte no momento da partida e do tempo de voo. Permite visualizar
-    onde estão as “janelas” favoráveis (regiões de baixo ΔV).
+    Minimizar o ΔV total de uma transferência Terra → Marte. Comparamos
+    duas estratégias:
   </p>
-  <div class="card">
-    <div class="controls-row">
-      <button class="btn btn-primary" id="btnPorkchop">gerar porkchop</button>
-      <span class="status-line">~50×50 amostras, ~30s em CPU comum</span>
+  <div class="grid">
+    <div class="card">
+      <h3>Direta</h3>
+      <ul>
+        <li>Saída de uma órbita baixa da Terra (h = 200 km)</li>
+        <li>Uma transferência heliocêntrica</li>
+        <li>Captura em órbita ao redor de Marte (h = 200 km)</li>
+      </ul>
+      <figure>
+        <img src="figures/modelo-transferencia-direta.png" alt="Diagrama transferência direta" />
+      </figure>
     </div>
-    <div id="porkchop" class="plot"></div>
+    <div class="card">
+      <h3>Swing-by por Vênus</h3>
+      <ul>
+        <li>Transferência Terra → Vênus</li>
+        <li>Sobrevoo em Vênus (deflexão sem gasto)</li>
+        <li>Transferência Vênus → Marte</li>
+        <li>Captura em Marte</li>
+      </ul>
+      <figure>
+        <img src="figures/diagrama-transferencia-swing-by.png" alt="Diagrama swing-by por Vênus" />
+      </figure>
+    </div>
   </div>
+
+  <h3>Hipóteses</h3>
+  <ul>
+    <li>Órbitas planetárias circulares e coplanares (problema 2D)</li>
+    <li>Patched conics — dentro da SOI, só a gravidade local</li>
+    <li>Manobras impulsivas</li>
+    <li>Swing-by tratado como deflexão simples no plano</li>
+  </ul>
 </section>
 
-<section id="resultados">
-  <h2>Resultados de referência</h2>
+<!-- MÉTODO -->
+<section id="metodo" class="reveal">
+  <h2>Método</h2>
+
+  <h3>Problema de Lambert</h3>
   <p>
-    Resultados obtidos rodando o PSO desta versão JavaScript (verificados
-    contra os resultados originais do MATLAB / data_best_2020-11-13.mat):
+    Algoritmo de <strong>Izzo</strong> (Newton-Raphson rápido) com fallback
+    <strong>Lancaster-Blanchard</strong>+Gooding, do código de Rody Oldenhuis.
   </p>
+  <div class="formula">[V₁, V₂] = Lambert(r₁, r₂, tf, m, μ)</div>
+
+  <h3>Saída da Terra</h3>
+  <div class="formula">
+    v<sub>∞</sub> = V₁ − v<sub>terra/sol</sub><br>
+    v<sub>partida</sub> = √(|v<sub>∞</sub>|² + 2μ<sub>⊕</sub>/R<sub>órbita</sub>)
+  </div>
+
+  <h3>Chegada em Marte</h3>
+  <div class="formula">
+    ΔV<sub>captura</sub> = |v<sub>p</sub> − v<sub>circ,marte</sub>|
+  </div>
+
+  <h3>Swing-by por Vênus</h3>
+  <div class="formula">sin(δ) = 1 / (1 + r<sub>p</sub>·|v|/μ<sub>♀</sub>)</div>
+
+  <h3>PSO — Particle Swarm Optimization</h3>
+  <div class="formula">v ← w·v + φ<sub>p</sub>·r<sub>p</sub>·(p<sub>best</sub> − x) + φ<sub>g</sub>·r<sub>g</sub>·(g<sub>best</sub> − x)</div>
+  <p>w = 0.9, φ<sub>p</sub> = 0.6, φ<sub>g</sub> = 0.8. Espaço multimodal, descontínuo nas bordas — daí PSO em vez de gradiente.</p>
+</section>
+
+<!-- RESULTADOS -->
+<section id="resultados" class="reveal">
+  <h2>Resultados</h2>
   <table class="cmp">
     <thead>
       <tr>
         <th>Cenário</th>
-        <th>ΔV total [km/s]</th>
+        <th>ΔV [km/s]</th>
         <th>Parâmetros ótimos</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>Transferência direta otimizada</td>
-        <td>~5,71</td>
-        <td>fase Marte ≈ 180° (oposição), t = 259 dias — Hohmann clássica</td>
+        <td>Direta otimizada</td>
+        <td><b>~5,71</b></td>
+        <td>fase Marte ≈ 180° (oposição), t ≈ 259 d — Hohmann clássica</td>
       </tr>
       <tr>
-        <td>Swing-by por Vênus otimizado</td>
-        <td>~8,02</td>
-        <td>fase Vênus ≈ 180°, t<sub>TV</sub> ≈ 121 d, t<sub>VM</sub> ≈ 215 d, r<sub>p</sub>/R<sub>SOI</sub> ≈ 0,09</td>
+        <td>Swing-by por Vênus</td>
+        <td><b>~8,02</b></td>
+        <td>fase Vênus ≈ 180°, t<sub>TV</sub> ≈ 121 d, t<sub>VM</sub> ≈ 215 d</td>
       </tr>
     </tbody>
   </table>
   <p>
-    Observação: nesta missão específica, com órbitas circulares e captura em
-    LMO/LMO, o swing-by por Vênus <strong>não vence</strong> a transferência
-    direta — ele adiciona uma manobra a mais e a deflexão por Vênus não
-    economiza ΔV suficiente. O exercício é especialmente útil para missões
-    rumo aos planetas externos.
+    Para esta missão (LEO → LMO, órbitas circulares), o swing-by por
+    Vênus <strong>não vence</strong> a direta. Em missões aos planetas
+    externos a história muda.
   </p>
 
   <h3>Figuras de referência</h3>
@@ -255,35 +244,65 @@
       <img src="figures/ilustracao-swing-by-deflexao.png" alt="Esquema da deflexão no swing-by" />
       <figcaption>Geometria da deflexão no swing-by</figcaption>
     </figure>
-    <figure>
-      <img src="figures/ilustracao-saida-planetaria.png" alt="Saída planetária" />
-      <figcaption>Esquema da saída da SOI da Terra</figcaption>
-    </figure>
   </div>
 </section>
 
-<section id="referencias">
-  <h2>Referências e código</h2>
+<!-- REFERÊNCIAS -->
+<section id="referencias" class="reveal">
+  <h2>Referências</h2>
   <ul>
-    <li>Relatório final (PDF): <a href="references/MVO_41_trabalho_final.pdf">MVO_41_trabalho_final.pdf</a></li>
-    <li>Apêndice / nota extra (PDF): <a href="references/MVO_41_EXTRA.pdf">MVO_41_EXTRA.pdf</a></li>
-    <li>Código MATLAB original: <a href="https://github.com/chicomcastro/optimized-Earth-Mars-transfer">GitHub — chicomcastro/optimized-Earth-Mars-transfer</a></li>
-    <li>Lambert solver: Rody Oldenhuis (BSD), implementando Izzo (ESA) e Lancaster–Blanchard–Gooding.</li>
-    <li>Bibliografia clássica:
-      <ul>
-        <li>Curtis, H. <em>Orbital Mechanics for Engineering Students</em>.</li>
-        <li>Vallado, D. A. <em>Fundamentals of Astrodynamics and Applications</em>.</li>
-        <li>Battin, R. <em>An Introduction to the Mathematics and Methods of Astrodynamics</em>.</li>
-      </ul>
-    </li>
+    <li>Relatório final: <a href="references/MVO_41_trabalho_final.pdf">MVO_41_trabalho_final.pdf</a></li>
+    <li>Apêndice: <a href="references/MVO_41_EXTRA.pdf">MVO_41_EXTRA.pdf</a></li>
+    <li>Código MATLAB original: <a href="https://github.com/chicomcastro/optimized-Earth-Mars-transfer">GitHub</a></li>
+    <li>Lambert: Rody Oldenhuis (BSD), Izzo (ESA), Lancaster-Blanchard-Gooding</li>
+    <li>Bibliografia: Curtis, Vallado, Battin</li>
   </ul>
 </section>
 
 </main>
 
 <footer>
-  Porte JavaScript do simulador MATLAB MVO-41. Roda 100% no cliente, sem servidor.
+  Porte JavaScript do simulador MATLAB MVO-41. 100% no cliente.
 </footer>
+
+<!-- Bottom nav (mobile) -->
+<nav class="bottom-nav" id="bottomNav">
+  <a href="#simulador" data-target="simulador" class="active">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+    </span>
+    <span>Simulador</span>
+  </a>
+  <a href="#exploracao" data-target="exploracao">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 12c4-6 14-6 18 0"/><path d="M3 18c4-3 14-3 18 0"/></svg>
+    </span>
+    <span>Porkchop</span>
+  </a>
+  <a href="#otimizacao" data-target="otimizacao">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+    </span>
+    <span>PSO</span>
+  </a>
+  <a href="#problema" data-target="problema">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.6.3-1 .9-1 1.7v.5"/><path d="M12 17h.01"/></svg>
+    </span>
+    <span>Teoria</span>
+  </a>
+  <a href="#resultados" data-target="resultados">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8M9 21V4M15 21v-9M21 21v-6"/></svg>
+    </span>
+    <span>Resultados</span>
+  </a>
+</nav>
+
+<div class="toast" id="toast">
+  <span class="icon">✓</span>
+  <span id="toastText"></span>
+</div>
 
 <script src="js/vec.js"></script>
 <script src="js/constants.js"></script>
