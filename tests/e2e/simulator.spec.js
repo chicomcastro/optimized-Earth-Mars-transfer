@@ -419,6 +419,65 @@ test('25 - segundo PSO mostra delta vs anterior', async ({ page }) => {
   expect(cardText).toMatch(/[=▼▲]/);
 });
 
+test('26 - fase Marte 0° == fase Marte 360° (modular)', async ({ page }) => {
+  // Usa modo swing-by pra não ser degenerado nas duas extremidades
+  await page.click('button.preset-btn[data-preset="swingBy"]');
+  await page.waitForTimeout(300);
+  // Set fase Marte = 0
+  await page.evaluate(() => {
+    const s = document.querySelector('#paramInputs .param-control[data-idx="0"] .pc-slider');
+    s.value = '0';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+  const cost0Text = await page.locator('#costValue').textContent();
+
+  // Set fase Marte = 360
+  await page.evaluate(() => {
+    const s = document.querySelector('#paramInputs .param-control[data-idx="0"] .pc-slider');
+    s.value = '360';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+  const cost360Text = await page.locator('#costValue').textContent();
+
+  // Ambos devem ser o mesmo valor (modulo 2π) — texto ou ambos ∞
+  expect(cost0Text).toBe(cost360Text);
+});
+
+test('27 - configuração degenerada mostra warning', async ({ page }) => {
+  await page.click('label[for="modeDirect"]');
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const s = document.querySelector('#paramInputs .param-control[data-idx="0"] .pc-slider');
+    s.value = '0';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(400);
+  // Warning visível (cost pode ser ∞ ou número grande)
+  await expect(page.locator('#costWarn')).toBeVisible();
+  // costDisplay tem classe 'degenerate'
+  await expect(page.locator('#costDisplay.degenerate')).toBeVisible();
+
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '27-warning-degenerado');
+});
+
+test('28 - tooltip do parâmetro abre ao clicar no "?"', async ({ page }) => {
+  await page.click('button.preset-btn[data-preset="direct"]');
+  await page.waitForTimeout(300);
+  // Clica no primeiro ícone de info
+  await page.locator('#paramInputs .pc-info').first().click();
+  await page.waitForTimeout(300);
+  const tip = page.locator('.tooltip-pop');
+  await expect(tip).toBeVisible();
+  const text = await tip.textContent();
+  expect(text).toMatch(/posição angular|chegada/i);
+
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '28-tooltip-parametro');
+});
+
 test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
   await page.click('label[for="modeDirect"]');
   await page.waitForTimeout(200);

@@ -77,13 +77,44 @@ const Animation = (() => {
   }
 
   // Posição da nave em t (s desde a partida da Terra).
+  // Se trajetorias está vazio (Lambert falhou), interpola linearmente entre
+  // r_terra_sol e r_marte_sol como fallback — assim a nave sempre termina em Marte.
   function craftAt(sim, t) {
     if (t < 0) return null;
-    if (t >= sim.t_total_s) {
-      // No fim, fica no Marte
-      const last = sim.trajetorias[sim.trajetorias.length - 1];
-      return propagate(last.r0, last.v0, last.mi, sim.legDurations_s[sim.legDurations_s.length - 1]);
+
+    if (!sim.trajetorias || sim.trajetorias.length === 0) {
+      // Fallback degenerado: interpola Terra → (Vênus →) Marte linearmente
+      const total = sim.t_total_s || 1;
+      const f = Math.min(1, t / total);
+      if (sim.venusSwingBy) {
+        const tV = sim.legDurations_s[0] / total;
+        if (f <= tV) {
+          const ff = f / tV;
+          return [
+            sim.r_terra_sol[0] * (1 - ff) + sim.r_venus_sol[0] * ff,
+            sim.r_terra_sol[1] * (1 - ff) + sim.r_venus_sol[1] * ff,
+            0,
+          ];
+        }
+        const ff = (f - tV) / (1 - tV);
+        return [
+          sim.r_venus_sol[0] * (1 - ff) + sim.r_marte_sol[0] * ff,
+          sim.r_venus_sol[1] * (1 - ff) + sim.r_marte_sol[1] * ff,
+          0,
+        ];
+      }
+      return [
+        sim.r_terra_sol[0] * (1 - f) + sim.r_marte_sol[0] * f,
+        sim.r_terra_sol[1] * (1 - f) + sim.r_marte_sol[1] * f,
+        0,
+      ];
     }
+
+    if (t >= sim.t_total_s) {
+      // No fim, garante Marte (posição final, sem propagar pra evitar drift Kepleriano)
+      return sim.r_marte_sol.slice();
+    }
+
     // Acha em qual leg estamos
     let legIdx = 0;
     for (let i = 0; i < sim.legDurations_s.length; i++) {
@@ -93,8 +124,14 @@ const Animation = (() => {
       }
     }
     const leg = sim.trajetorias[legIdx];
+    if (!leg) return sim.r_marte_sol.slice();
     const localT = t - sim.legStarts_s[legIdx];
-    return propagate(leg.r0, leg.v0, leg.mi, localT);
+    const pos = propagate(leg.r0, leg.v0, leg.mi, localT);
+    // Sanity check: se propagate deu NaN, fallback
+    if (!isFinite(pos[0]) || !isFinite(pos[1])) {
+      return leg.r0.slice();
+    }
+    return pos;
   }
 
   // Estado completo do sistema em t (heliocêntrico inercial)

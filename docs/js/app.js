@@ -56,6 +56,16 @@ const Anim = {
 // Param controls: sliders + numeric (sincronizados)
 // ============================================================
 
+// Tooltips por nome de parâmetro
+const PARAM_TOOLTIPS = {
+  "fase de Marte": "Posição angular de Marte na sua órbita ao redor do Sol no MOMENTO DA CHEGADA da nave. Medido a partir do eixo +x (referencial heliocêntrico inercial). 0° = Marte alinhado com a Terra inicial; 180° = oposição (Hohmann clássica).",
+  "fase de Vênus": "Posição angular de Vênus no momento do sobrevoo (gravity assist). Determina onde Vênus está quando a nave passa por ele.",
+  "T-V (dias)": "Tempo de voo do segmento Terra → Vênus, em dias. Junto com a fase de Vênus, fixa a geometria do sobrevoo.",
+  "V-M (dias)": "Tempo de voo do segmento Vênus → Marte, em dias. Junto com a fase de Marte, fixa o ponto de chegada.",
+  "T-M (dias)": "Tempo de voo total Terra → Marte em transferência direta. Tempo de Hohmann ~259 dias.",
+  "r_p / R_SOI Vênus": "Periapsis do sobrevoo em Vênus, em fração da SOI (sphere of influence) de Vênus. Quanto menor, mais perto a nave passa de Vênus (mais deflexão). Limite físico: 1.0 = entrada da SOI; típico ótimo ~0.03–0.1.",
+};
+
 function renderInputs(venusSwingBy, values) {
   const bnd = defaultBounds(venusSwingBy);
   const html = bnd.labels
@@ -67,15 +77,17 @@ function renderInputs(venusSwingBy, values) {
       const dLo = isAngle ? radToDeg(lo) : lo;
       const dHi = isAngle ? radToDeg(hi) : hi;
       const dVal = isAngle ? radToDeg(values[i]) : values[i];
-      // step pequeno: o slider tem ~1000px de range, 0.01 dá precisão visual suficiente
-      // e não corrompe presets do PSO com mais precisão
       const step = isAngle ? 0.01 : isTime ? 0.01 : 0.0001;
       const decimals = isAngle ? 2 : isTime ? 1 : 4;
+      const tip = PARAM_TOOLTIPS[label] || "";
 
       return `
         <div class="param-control" data-idx="${i}" data-angle="${isAngle}">
           <div class="pc-head">
-            <span class="pc-label">${label}</span>
+            <span class="pc-label">
+              ${label}
+              ${tip ? `<button type="button" class="pc-info" aria-label="info sobre ${label}" data-tip="${tip.replace(/"/g, '&quot;')}">?</button>` : ""}
+            </span>
             <span class="pc-value" tabindex="0">
               <span class="pc-num">${dVal.toFixed(decimals)}</span><span class="pc-unit">${unit}</span>
             </span>
@@ -92,10 +104,17 @@ function renderInputs(venusSwingBy, values) {
     .join("");
   $("paramInputs").innerHTML = html;
 
-  // Bind events: slider + click-to-edit no pc-value
+  // Bind events: slider + click-to-edit no pc-value + info tooltips
   $$(".pc-slider", $("paramInputs")).forEach((slider) => {
     slider.addEventListener("input", onSliderInput);
-    updateSliderFill(slider); // pinta o track inicial
+    updateSliderFill(slider);
+  });
+  $$(".pc-info", $("paramInputs")).forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showTooltip(btn, btn.dataset.tip);
+    });
   });
   $$(".pc-value", $("paramInputs")).forEach((pc) => {
     pc.addEventListener("click", () => enterEditMode(pc));
@@ -352,6 +371,20 @@ function renderCost(sim, venusSwingBy, pulse) {
     cd.classList.add("pulse-once");
   }
 
+  // Avisa o usuário se a config está em região degenerada (ΔV absurdo)
+  const cd = $("costDisplay");
+  const degenerate = sim.degenerate || !isFinite(sim.cost) || sim.cost > 50;
+  cd.classList.toggle("degenerate", degenerate);
+  const warnEl = $("costWarn");
+  if (degenerate) {
+    warnEl.style.display = 'flex';
+    warnEl.innerHTML = `<span class="warn-icon">⚠</span>
+      <span>Configuração próxima ao degenerado (transferência ~0° ou ~180°).
+      Tente outros valores de fase para uma trajetória física razoável.</span>`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+
   const labels = venusSwingBy
     ? ["partida", "swing-by Vênus", "captura Marte"]
     : ["partida", "captura Marte"];
@@ -558,6 +591,43 @@ function onPorkchopClick(point) {
   window.scrollTo({ top, behavior: "smooth" });
 
   showToast(`Aplicado: fase ${point.phaseDeg.toFixed(1)}°, t = ${point.tDays.toFixed(0)}d · ΔV ${fmt(point.cost, 2)} km/s`);
+}
+
+// ============================================================
+// Tooltip (popover acionado por click no "?")
+// ============================================================
+
+let activeTooltip = null;
+function showTooltip(anchor, text) {
+  // Fecha qualquer aberta
+  if (activeTooltip) {
+    activeTooltip.remove();
+    activeTooltip = null;
+  }
+  const tip = document.createElement('div');
+  tip.className = 'tooltip-pop';
+  tip.textContent = text;
+  document.body.appendChild(tip);
+  activeTooltip = tip;
+
+  // Posiciona acima do anchor
+  const r = anchor.getBoundingClientRect();
+  const tipR = tip.getBoundingClientRect();
+  let left = r.left + r.width / 2 - tipR.width / 2;
+  left = Math.max(8, Math.min(window.innerWidth - tipR.width - 8, left));
+  let top = r.top + window.scrollY - tipR.height - 10;
+  if (top < window.scrollY + 8) top = r.bottom + window.scrollY + 10;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  requestAnimationFrame(() => tip.classList.add('show'));
+
+  // Fecha em qualquer click subsequente
+  const close = (e) => {
+    if (e.target === anchor) return;
+    if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+    document.removeEventListener('click', close);
+  };
+  setTimeout(() => document.addEventListener('click', close), 50);
 }
 
 // ============================================================

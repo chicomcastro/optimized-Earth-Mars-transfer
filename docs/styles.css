@@ -328,6 +328,49 @@ section ul { padding-left: 1.2rem; }
 .cost-display .cost-sub {
   margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.45rem;
 }
+.cost-warn {
+  margin-top: 0.6rem; padding: 0.5rem 0.7rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  font-size: 0.82rem; color: #fda4a4; line-height: 1.4;
+  display: flex; align-items: flex-start; gap: 0.45rem;
+}
+.cost-warn .warn-icon { font-size: 1rem; flex-shrink: 0; }
+.cost-display.degenerate .cost-value {
+  background: linear-gradient(135deg, var(--danger), #fda4a4);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Info button + tooltip nos parâmetros */
+.pc-info {
+  appearance: none; border: 1px solid var(--border-soft);
+  background: var(--bg-elev); color: var(--text-soft);
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 0.72rem; font-weight: 600; line-height: 1;
+  cursor: pointer; padding: 0; margin-left: 0.4rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+  transition: all var(--t-fast) var(--ease);
+}
+.pc-info:hover, .pc-info:focus {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+.tooltip-pop {
+  position: absolute; z-index: 100;
+  background: #0a0f24;
+  border: 1px solid var(--accent-soft);
+  border-radius: 8px; padding: 0.6rem 0.85rem;
+  font-size: 0.82rem; line-height: 1.45; color: var(--text);
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  opacity: 0; transform: translateY(4px);
+  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  pointer-events: none;
+}
+.tooltip-pop.show { opacity: 1; transform: translateY(0); }
 .deltaV-pill {
   font-size: 0.74rem; font-family: ui-monospace, monospace;
   padding: 0.25rem 0.55rem; border-radius: 999px;

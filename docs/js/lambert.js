@@ -31,7 +31,11 @@ const Lambert = (() => {
     const Lambda = (Math.sqrt(mr2vec) * Math.cos(dth / 2)) / s;
     const crossprd = Vec.cross(r1vec, r2vec);
     const mcr = Math.hypot(crossprd[0], crossprd[1], crossprd[2]);
-    const nrmunit = mcr === 0 ? [0, 0, 1] : Vec.scale(crossprd, 1 / mcr);
+    // Tolerância: para r1, r2 quase colineares (transferência ~0° ou ~180°)
+    // o sinal de mcr depende de float epsilon — força sempre +z (CCW)
+    // para evitar saltos de plano de órbita entre fase=0 e fase=360.
+    const COLINEAR_TOL = 1e-10;
+    const nrmunit = mcr < COLINEAR_TOL ? [0, 0, 1] : Vec.scale(crossprd, 1 / mcr);
 
     const logt = Math.log(tf);
 
