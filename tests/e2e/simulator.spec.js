@@ -42,6 +42,16 @@ async function getCost(page) {
   return parseFloat(txt.trim());
 }
 
+// Helpers para selecionar missão e preset.
+async function selectMission(page, missionId) {
+  await page.selectOption('#missionSelect', missionId);
+  await page.waitForTimeout(300);
+}
+async function clickFirstPreset(page) {
+  await page.click('#presetRow .preset-btn:first-child');
+  await page.waitForTimeout(200);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
   await waitAppReady(page);
@@ -56,7 +66,7 @@ test('01 - landing page completa', async ({ page }) => {
 });
 
 test('02 - swing-by preset (ΔV ~ 8 km/s)', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="swingBy"]');
+  await selectMission(page, "mars-venus-flyby"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
 
   const dv = await getCost(page);
@@ -71,9 +81,9 @@ test('02 - swing-by preset (ΔV ~ 8 km/s)', async ({ page }) => {
 
 test('03 - direta (ΔV ~ 5.7 km/s)', async ({ page }) => {
   // Segmented control: usa label do iOS-style (input está escondido)
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.waitForTimeout(200);
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
 
   const dv = await getCost(page);
@@ -87,8 +97,8 @@ test('03 - direta (ΔV ~ 5.7 km/s)', async ({ page }) => {
 });
 
 test('04 - editar slider recalcula em tempo real', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo");
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
 
   const before = await getCost(page);
@@ -109,7 +119,7 @@ test('04 - editar slider recalcula em tempo real', async ({ page }) => {
 });
 
 test('05 - PSO direto converge', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.waitForTimeout(200);
 
   await page.fill('#psoParticles', '100');
@@ -131,7 +141,7 @@ test('05 - PSO direto converge', async ({ page }) => {
 });
 
 test('06 - PSO swing-by converge', async ({ page }) => {
-  await page.click('label[for="modeSwingBy"]');
+  await selectMission(page, "mars-venus-flyby");
   await page.waitForTimeout(200);
 
   await page.fill('#psoParticles', '80');
@@ -185,9 +195,9 @@ test('08 - porkchop click aplica params no simulador', async ({ page }) => {
   });
   await page.waitForTimeout(800);
 
-  // Após o click, o modo deve estar em "direta" e o cost ~ 5.7
-  const direct = await page.evaluate(() => document.getElementById('modeDirect').checked);
-  expect(direct).toBe(true);
+  // Após o click, a missão atual é mars-direct-leo e o cost ~ 5.7
+  const mid = await page.evaluate(() => currentMissionId);
+  expect(mid).toBe('mars-direct-leo');
   const dv = await getCost(page);
   expect(dv).toBeLessThan(7);
 
@@ -196,21 +206,28 @@ test('08 - porkchop click aplica params no simulador', async ({ page }) => {
   await shoot(page, '08-porkchop-click-aplicado');
 });
 
-test('29 - porkchop seletor lista 5 explorações', async ({ page }) => {
-  const opts = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('#porkchopExploration option')).map((o) => o.value)
+test('29 - porkchop seletor lista explorações da missão', async ({ page }) => {
+  // mars-direct-leo (default): 2 params → 1 exploração (C(2,2)=1)
+  let opts = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#porkchopExploration option')).map((o) => o.textContent)
   );
-  expect(opts).toEqual([
-    'direct-phase-time',
-    'sb-phases',
-    'sb-times',
-    'sb-venus-time',
-    'sb-rp-venus',
-  ]);
+  expect(opts.length).toBe(1);
+  expect(opts[0]).toMatch(/Marte.*T-M|T-M.*Marte/);
+
+  // Troca pra mars-venus-flyby: 5 params → 10 explorações (C(5,2)=10)
+  await selectMission(page, 'mars-venus-flyby');
+  await page.waitForTimeout(200);
+  opts = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#porkchopExploration option')).map((o) => o.textContent)
+  );
+  expect(opts.length).toBe(10);
 });
 
 test('30 - trocar exploração atualiza labels dos eixos e parâmetros fixos', async ({ page }) => {
-  await page.selectOption('#porkchopExploration', 'sb-phases');
+  await selectMission(page, 'mars-venus-flyby');
+  await page.waitForTimeout(200);
+  // Primeira exploração é fase Marte × fase Vênus (idx 0)
+  await page.selectOption('#porkchopExploration', '0');
   await page.waitForTimeout(200);
 
   expect(await page.locator('#porkchopXLabel').textContent()).toContain('Marte');
@@ -223,7 +240,13 @@ test('30 - trocar exploração atualiza labels dos eixos e parâmetros fixos', a
 
 test('31 - porkchop swing-by gera plot com range custom', async ({ page }) => {
   test.setTimeout(120_000);
-  await page.selectOption('#porkchopExploration', 'sb-times');
+  await selectMission(page, 'mars-venus-flyby');
+  // Procura a exploração T-V × V-M no select
+  const explorationsIdx = await page.evaluate(() => {
+    const opts = Array.from(document.querySelectorAll('#porkchopExploration option'));
+    return opts.findIndex(o => /T-V.*V-M|V-M.*T-V/.test(o.textContent));
+  });
+  await page.selectOption('#porkchopExploration', String(explorationsIdx));
   await page.waitForTimeout(200);
 
   // Customiza range: T-V em [60, 160], V-M em [60, 220]
@@ -255,8 +278,7 @@ test('31 - porkchop swing-by gera plot com range custom', async ({ page }) => {
 
 test('33 - porkchop plot mostra labels nos eixos X e Y', async ({ page }) => {
   test.setTimeout(120_000);
-  await page.selectOption('#porkchopExploration', 'direct-phase-time');
-  await page.waitForTimeout(150);
+  // mars-direct-leo default → exploração 0 = phase_marte × t_TM
   await page.fill('#porkchopN', '20');
   await page.click('#btnPorkchop');
   await page.waitForFunction(
@@ -281,21 +303,21 @@ test('33 - porkchop plot mostra labels nos eixos X e Y', async ({ page }) => {
   await shoot(page, '33-porkchop-axis-labels');
 });
 
-test('34 - explicação aparece e muda por exploração', async ({ page }) => {
-  await page.selectOption('#porkchopExploration', 'direct-phase-time');
-  await page.waitForTimeout(150);
+test('34 - explicação aparece e muda por missão/exploração', async ({ page }) => {
+  // mars-direct-leo, exploração default
   const t1 = await page.locator('#porkchopExplain').textContent();
-  expect(t1).toMatch(/Hohmann|259/i);
+  expect(t1).toMatch(/Mapa de ΔV|ΔV/i);
 
-  await page.selectOption('#porkchopExploration', 'sb-rp-venus');
-  await page.waitForTimeout(150);
+  // Troca de missão muda a explicação (label diferente)
+  await selectMission(page, 'mars-venus-flyby');
+  await page.waitForTimeout(200);
   const t2 = await page.locator('#porkchopExplain').textContent();
-  expect(t2).toMatch(/r_p|deflexão|sobrevoo/i);
   expect(t1).not.toBe(t2);
 });
 
 test('32 - reset ranges volta aos defaults', async ({ page }) => {
-  await page.selectOption('#porkchopExploration', 'sb-phases');
+  await selectMission(page, 'mars-venus-flyby');
+  await page.selectOption('#porkchopExploration', '0');
   await page.waitForTimeout(200);
   await page.fill('#porkchopXMin', '90');
   await page.fill('#porkchopXMax', '270');
@@ -363,7 +385,7 @@ test('15 - mobile - trajetória renderiza com legend horizontal', async ({ page 
 });
 
 test('18 - shadow toggle mostra posição inicial de Marte e Vênus', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="swingBy"]');
+  await selectMission(page, "mars-venus-flyby"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   await page.check('#toggleShadow');
   await page.waitForTimeout(400);
@@ -382,7 +404,7 @@ test('18 - shadow toggle mostra posição inicial de Marte e Vênus', async ({ p
 });
 
 test('19 - animation player: scrub muda posição da nave', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
 
   // Vai pro meio da missão via scrubber
@@ -415,7 +437,7 @@ test('19 - animation player: scrub muda posição da nave', async ({ page }) => 
 });
 
 test('20 - referencial geocêntrico: Terra fica fixa na origem', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   await page.click('label[for="frameGeo"]');
   await page.waitForTimeout(400);
@@ -436,7 +458,7 @@ test('20 - referencial geocêntrico: Terra fica fixa na origem', async ({ page }
 });
 
 test('21 - referencial sinódico: trajetória diferente do helio', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   await page.click('label[for="frameSyn"]');
   await page.waitForTimeout(400);
@@ -454,7 +476,7 @@ test('21 - referencial sinódico: trajetória diferente do helio', async ({ page
 });
 
 test('22 - play da animação avança o tempo', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   // Reset
   await page.click('#animReset');
@@ -485,7 +507,7 @@ test('23 - input partículas aceita > 5000 sem tooltip de erro', async ({ page }
 });
 
 test('24 - PSO mostra card de resultado destacado ao final', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.fill('#psoParticles', '60');
   await page.fill('#psoIterations', '20');
   await page.click('#btnRun');
@@ -508,7 +530,7 @@ test('24 - PSO mostra card de resultado destacado ao final', async ({ page }) =>
 });
 
 test('25 - segundo PSO mostra delta vs anterior', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.fill('#psoParticles', '60');
   await page.fill('#psoIterations', '20');
   await page.click('#btnRun');
@@ -531,7 +553,7 @@ test('25 - segundo PSO mostra delta vs anterior', async ({ page }) => {
 
 test('26 - fase Marte 0° == fase Marte 360° (modular)', async ({ page }) => {
   // Usa modo swing-by pra não ser degenerado nas duas extremidades
-  await page.click('button.preset-btn[data-preset="swingBy"]');
+  await selectMission(page, "mars-venus-flyby"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   // Set fase Marte = 0
   await page.evaluate(() => {
@@ -556,7 +578,7 @@ test('26 - fase Marte 0° == fase Marte 360° (modular)', async ({ page }) => {
 });
 
 test('27 - configuração degenerada mostra warning', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.waitForTimeout(200);
   await page.evaluate(() => {
     const s = document.querySelector('#paramInputs .param-control[data-idx="0"] .pc-slider');
@@ -574,7 +596,7 @@ test('27 - configuração degenerada mostra warning', async ({ page }) => {
 });
 
 test('28 - tooltip do parâmetro abre ao clicar no "?"', async ({ page }) => {
-  await page.click('button.preset-btn[data-preset="direct"]');
+  await selectMission(page, "mars-direct-leo"); await clickFirstPreset(page);
   await page.waitForTimeout(300);
   // Clica no primeiro ícone de info
   await page.locator('#paramInputs .pc-info').first().click();
@@ -590,7 +612,7 @@ test('28 - tooltip do parâmetro abre ao clicar no "?"', async ({ page }) => {
 
 test('35 - porkchop direto agora é contínuo após 180° (long-way prógrado)', async ({ page }) => {
   test.setTimeout(120_000);
-  await page.selectOption('#porkchopExploration', 'direct-phase-time');
+  await page.selectOption('#porkchopExploration', '0');
   await page.fill('#porkchopN', '40');
   await page.click('#btnPorkchop');
   await page.waitForFunction(
@@ -616,8 +638,69 @@ test('35 - porkchop direto agora é contínuo após 180° (long-way prógrado)',
   await shoot(page, '35-porkchop-continuo');
 });
 
+test('36 - missão mars-direct-geo: ΔV menor que LEO (saindo de mais alto)', async ({ page }) => {
+  await selectMission(page, 'mars-direct-geo');
+  await clickFirstPreset(page);
+  const dv = await getCost(page);
+  expect(dv).toBeGreaterThan(3.5);
+  expect(dv).toBeLessThan(5);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '36-mission-mars-geo');
+});
+
+test('37 - missão venus-direct: Hohmann interna', async ({ page }) => {
+  await selectMission(page, 'venus-direct');
+  await clickFirstPreset(page);
+  const dv = await getCost(page);
+  expect(dv).toBeGreaterThan(5);
+  expect(dv).toBeLessThan(10);
+  const nParams = await page.locator('#paramInputs .param-control').count();
+  expect(nParams).toBe(2);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '37-mission-venus');
+});
+
+test('38 - missão mercury-venus-flyby: swing-by que vale a pena', async ({ page }) => {
+  await selectMission(page, 'mercury-venus-flyby');
+  await clickFirstPreset(page);
+  const dv = await getCost(page);
+  expect(dv).toBeGreaterThan(7);
+  expect(dv).toBeLessThan(12);
+  const nParams = await page.locator('#paramInputs .param-control').count();
+  expect(nParams).toBe(5);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '38-mission-mercury');
+});
+
+test('39 - missão jupiter-mars-flyby: swing-by externo', async ({ page }) => {
+  await selectMission(page, 'jupiter-mars-flyby');
+  await clickFirstPreset(page);
+  const dv = await getCost(page);
+  expect(dv).toBeGreaterThan(8);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '39-mission-jupiter');
+});
+
+test('40 - missão earth-moon: geocêntrico, tempos em dias', async ({ page }) => {
+  await selectMission(page, 'earth-moon');
+  await clickFirstPreset(page);
+  const dv = await getCost(page);
+  expect(dv).toBeGreaterThan(3);
+  expect(dv).toBeLessThan(6);
+  const nParams = await page.locator('#paramInputs .param-control').count();
+  expect(nParams).toBe(2);
+  // Parâmetro de tempo está em dias razoáveis (3-14 d, não 100s de dias)
+  const tVal = await page.evaluate(() => {
+    const s = document.querySelector('#paramInputs .param-control[data-idx="1"] .pc-slider');
+    return parseFloat(s.value);
+  });
+  expect(tVal).toBeLessThan(20);
+  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await shoot(page, '40-mission-moon');
+});
+
 test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.waitForTimeout(200);
   // Aplica fase=110°, t=213d
   await page.evaluate(() => {
@@ -677,7 +760,7 @@ test('16 - mobile - porkchop click flow', async ({ page }) => {
 });
 
 test('14 - PSO mostra convergência completa', async ({ page }) => {
-  await page.click('label[for="modeDirect"]');
+  await selectMission(page, "mars-direct-leo");
   await page.fill('#psoParticles', '50');
   await page.fill('#psoIterations', '40');
   await page.click('#btnRun');

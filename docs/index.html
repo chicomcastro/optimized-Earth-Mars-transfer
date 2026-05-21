@@ -49,19 +49,23 @@
   </p>
 
   <div class="card">
-    <div class="controls-row">
-      <div class="segmented">
-        <input type="radio" id="modeSwingBy" name="mode" checked />
-        <label for="modeSwingBy"><span>↪ via Vênus</span></label>
-        <input type="radio" id="modeDirect" name="mode" />
-        <label for="modeDirect"><span>→ direta</span></label>
-      </div>
+    <!-- Seletor de missão -->
+    <div class="mission-picker">
+      <label class="mp-label">missão:
+        <select id="missionSelect">
+          <option value="mars-direct-leo">Terra → Marte (direta de LEO)</option>
+          <option value="mars-venus-flyby">Terra → Marte (swing-by Vênus)</option>
+          <option value="mars-direct-geo">Terra → Marte (direta de GEO)</option>
+          <option value="venus-direct">Terra → Vênus (direta)</option>
+          <option value="mercury-venus-flyby">Terra → Mercúrio (swing-by Vênus)</option>
+          <option value="jupiter-mars-flyby">Terra → Júpiter (swing-by Marte)</option>
+          <option value="earth-moon">Terra → Lua (geocêntrico)</option>
+        </select>
+      </label>
+      <span class="mp-badge" id="missionBadge"></span>
     </div>
-    <div class="chip-row" id="presetRow">
-      <button class="chip preset-btn" data-preset="swingBy">⭐ melhor swing-by</button>
-      <button class="chip preset-btn" data-preset="swingByAlt">swing-by exploratório</button>
-      <button class="chip preset-btn" data-preset="direct">⭐ melhor direta</button>
-    </div>
+    <p class="mission-description" id="missionDescription"></p>
+    <div class="chip-row" id="presetRow"></div>
   </div>
 
   <div class="simulator-grid">
@@ -395,6 +399,8 @@
 
 <script src="js/vec.js"></script>
 <script src="js/constants.js"></script>
+<script src="js/bodies.js"></script>
+<script src="js/missions.js"></script>
 <script src="js/orbit.js"></script>
 <script src="js/lambert.js"></script>
 <script src="js/simulate.js"></script>

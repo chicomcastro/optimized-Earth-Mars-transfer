@@ -3,28 +3,8 @@
 // porkchop clicável e navegação ativa por scroll-spy.
 // ============================================================
 
-// Pontos de partida — melhores configurações encontradas via PSO neste código.
-// IMPORTANTE: são *sub-ótimas*. O espaço de busca é grande e multimodal;
-// podem existir melhores não exploradas — rode o PSO com mais partículas/iterações.
-const PRESETS = {
-  swingBy: {
-    label: "Swing-by por Vênus (sub-ótimo encontrado)",
-    venusSwingBy: true,
-    // ΔV ≈ 7.97 km/s — melhor após múltiplos restarts (1500 part × 300 iter × 8 runs)
-    x: [6.2824, 3.1416, 121.25, 217.24, 0.0675],
-  },
-  swingByAlt: {
-    label: "Swing-by exploratório",
-    venusSwingBy: true,
-    x: [Math.PI, Math.PI / 2, 150, 200, 0.05],
-  },
-  direct: {
-    label: "Direta (Hohmann clássica)",
-    venusSwingBy: false,
-    // ΔV ≈ 5.71 km/s — Hohmann é o ótimo global pra esse caso direto
-    x: [Math.PI, 258.8],
-  },
-};
+let currentMissionId = 'mars-direct-leo';
+const currentMission = () => Missions[currentMissionId];
 
 const $ = (id) => document.getElementById(id);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -56,37 +36,50 @@ const Anim = {
 // Param controls: sliders + numeric (sincronizados)
 // ============================================================
 
-// Tooltips por nome de parâmetro
+// Tooltips por nome explícito de parâmetro
 const PARAM_TOOLTIPS = {
-  "fase de Marte": "Posição angular de Marte na sua órbita ao redor do Sol no MOMENTO DA CHEGADA da nave. Medido a partir do eixo +x (referencial heliocêntrico inercial). 0° = Marte alinhado com a Terra inicial; 180° = oposição (Hohmann clássica).",
+  "fase de Marte": "Posição angular de Marte na sua órbita ao redor do Sol no MOMENTO DA CHEGADA da nave. Medido a partir do eixo +x (referencial heliocêntrico inercial). 0° = alinhado com a Terra inicial; 180° = oposição (Hohmann clássica).",
   "fase de Vênus": "Posição angular de Vênus no momento do sobrevoo (gravity assist). Determina onde Vênus está quando a nave passa por ele.",
-  "T-V (dias)": "Tempo de voo do segmento Terra → Vênus, em dias. Junto com a fase de Vênus, fixa a geometria do sobrevoo.",
-  "V-M (dias)": "Tempo de voo do segmento Vênus → Marte, em dias. Junto com a fase de Marte, fixa o ponto de chegada.",
-  "T-M (dias)": "Tempo de voo total Terra → Marte em transferência direta. Tempo de Hohmann ~259 dias.",
-  "r_p / R_SOI Vênus": "Periapsis do sobrevoo em Vênus, em fração da SOI (sphere of influence) de Vênus. Quanto menor, mais perto a nave passa de Vênus (mais deflexão). Limite físico: 1.0 = entrada da SOI; típico ótimo ~0.03–0.1.",
+  "fase de Mercúrio": "Posição angular de Mercúrio no momento da chegada da nave.",
+  "fase de Júpiter": "Posição angular de Júpiter no momento da chegada da nave.",
+  "fase da Lua": "Posição angular da Lua na sua órbita ao redor da Terra, no momento da chegada da nave.",
+  "T-V (dias)": "Tempo de voo do segmento Terra → Vênus.",
+  "V-M (dias)": "Tempo de voo do segmento Vênus → Marte.",
+  "V-Mer (dias)": "Tempo de voo do segmento Vênus → Mercúrio.",
+  "T-M (dias)": "Tempo de voo total Terra → Marte (direta). Hohmann ≈ 259 dias.",
+  "M-J (dias)": "Tempo de voo do segmento Marte → Júpiter.",
+  "T-L (dias)": "Tempo de voo Terra → Lua. Hohmann LEO→Lua ≈ 5 dias.",
+  "r_p / R_SOI Vênus": "Periapsis do sobrevoo em Vênus, em fração da SOI (sphere of influence). Quanto menor, mais perto a nave passa (mais deflexão). Limite físico: 1.0 = entrada da SOI; típico ótimo ~0.03–0.1.",
+  "r_p / R_SOI Marte": "Periapsis do sobrevoo em Marte, em fração da SOI de Marte.",
+};
+// Fallback por tipo
+const PARAM_TOOLTIPS_BY_KIND = {
+  angle: "Posição angular do corpo no momento relevante da missão.",
+  days:  "Tempo de voo da perna (Lambert) correspondente.",
+  ratio: "Razão adimensional — periapsis do sobrevoo em fração da SOI.",
 };
 
-function renderInputs(venusSwingBy, values) {
-  const bnd = defaultBounds(venusSwingBy);
-  const html = bnd.labels
-    .map((label, i) => {
-      const lo = bnd.lb[i], hi = bnd.ub[i];
-      const isAngle = label.toLowerCase().includes("fase");
-      const isTime = label.toLowerCase().includes("dias");
+function renderInputs(values) {
+  const m = currentMission();
+  const html = m.params
+    .map((p, i) => {
+      const [lo, hi] = p.bounds;
+      const isAngle = p.kind === 'angle';
+      const isTime = p.kind === 'days';
       const unit = isAngle ? "°" : isTime ? " d" : "";
       const dLo = isAngle ? radToDeg(lo) : lo;
       const dHi = isAngle ? radToDeg(hi) : hi;
       const dVal = isAngle ? radToDeg(values[i]) : values[i];
       const step = isAngle ? 0.01 : isTime ? 0.01 : 0.0001;
       const decimals = isAngle ? 2 : isTime ? 1 : 4;
-      const tip = PARAM_TOOLTIPS[label] || "";
+      const tip = PARAM_TOOLTIPS[p.label] || PARAM_TOOLTIPS_BY_KIND[p.kind] || "";
 
       return `
         <div class="param-control" data-idx="${i}" data-angle="${isAngle}">
           <div class="pc-head">
             <span class="pc-label">
-              ${label}
-              ${tip ? `<button type="button" class="pc-info" aria-label="info sobre ${label}" data-tip="${tip.replace(/"/g, '&quot;')}">?</button>` : ""}
+              ${p.label}
+              ${tip ? `<button type="button" class="pc-info" aria-label="info sobre ${p.label}" data-tip="${tip.replace(/"/g, '&quot;')}">?</button>` : ""}
             </span>
             <span class="pc-value" tabindex="0">
               <span class="pc-num">${dVal.toFixed(decimals)}</span><span class="pc-unit">${unit}</span>
@@ -188,7 +181,7 @@ function rebindPcValue(pcValue) {
   pcValue.addEventListener("click", () => enterEditMode(pcValue));
 }
 
-function readInputs(venusSwingBy) {
+function readInputs() {
   const rows = $$(".param-control", $("paramInputs"));
   const x = new Array(rows.length);
   rows.forEach((row) => {
@@ -205,12 +198,13 @@ function readInputs(venusSwingBy) {
 // ============================================================
 
 function refreshScenario(opts = {}) {
-  const venusSwingBy = $("modeSwingBy").checked;
-  const bnd = defaultBounds(venusSwingBy);
-  const x = readInputs(venusSwingBy);
-  const xClamped = clampVec(x, bnd.lb, bnd.ub);
-  const sim = simulate(xClamped, { venusSwingBy });
-  renderCost(sim, venusSwingBy, opts.pulse);
+  const m = currentMission();
+  const lb = m.params.map((p) => p.bounds[0]);
+  const ub = m.params.map((p) => p.bounds[1]);
+  const x = readInputs();
+  const xClamped = clampVec(x, lb, ub);
+  const sim = simulate(currentMissionId, xClamped);
+  renderCost(sim, m, opts.pulse);
 
   // Atualiza estado da animação
   Anim.sim = sim;
@@ -361,7 +355,18 @@ function tweenCost(to, duration = 220) {
   costTween.rafId = requestAnimationFrame(step);
 }
 
-function renderCost(sim, venusSwingBy, pulse) {
+// Gera labels descritivos de ΔV pelas legs da missão
+function deltaVLabels(mission) {
+  const labels = ['partida'];
+  for (const leg of mission.legs) {
+    if (leg.kind === 'flyby') labels.push(`swing-by ${Bodies[leg.at].label}`);
+    // Lambert intermediário não tem custo próprio (handled at next leg or arrival)
+  }
+  labels.push(`captura ${Bodies[mission.arrival.body].label}`);
+  return labels;
+}
+
+function renderCost(sim, mission, pulse) {
   const costSub = $("costSub");
   tweenCost(sim.cost);
   if (pulse) {
@@ -371,7 +376,6 @@ function renderCost(sim, venusSwingBy, pulse) {
     cd.classList.add("pulse-once");
   }
 
-  // Avisa o usuário se a config está em região degenerada (ΔV absurdo)
   const cd = $("costDisplay");
   const degenerate = sim.degenerate || !isFinite(sim.cost) || sim.cost > 50;
   cd.classList.toggle("degenerate", degenerate);
@@ -379,15 +383,13 @@ function renderCost(sim, venusSwingBy, pulse) {
   if (degenerate) {
     warnEl.style.display = 'flex';
     warnEl.innerHTML = `<span class="warn-icon">⚠</span>
-      <span>Configuração próxima ao degenerado (transferência ~0° ou ~180°).
-      Tente outros valores de fase para uma trajetória física razoável.</span>`;
+      <span>Configuração próxima ao degenerado (transferência ~0° ou ~180°, ou tempo incompatível).
+      Tente outros valores de fase/tempo para uma trajetória física razoável.</span>`;
   } else {
     warnEl.style.display = 'none';
   }
 
-  const labels = venusSwingBy
-    ? ["partida", "swing-by Vênus", "captura Marte"]
-    : ["partida", "captura Marte"];
+  const labels = deltaVLabels(mission);
   const pills = sim.deltaV
     .map(
       (d, i) =>
@@ -397,15 +399,26 @@ function renderCost(sim, venusSwingBy, pulse) {
   costSub.innerHTML = pills;
 }
 
-function applyPreset(key, opts = {}) {
-  const p = PRESETS[key];
+function applyPreset(presetId, opts = {}) {
+  const m = currentMission();
+  const p = m.presets.find((p) => p.id === presetId);
   if (!p) return;
-  $("modeSwingBy").checked = p.venusSwingBy;
-  $("modeDirect").checked = !p.venusSwingBy;
-  renderInputs(p.venusSwingBy, p.x.slice());
-  $$(".preset-btn").forEach((b) => b.classList.toggle("active", b.dataset.preset === key));
+  renderInputs(p.x.slice());
+  $$(".preset-btn").forEach((b) => b.classList.toggle("active", b.dataset.preset === presetId));
   refreshScenario({ pulse: true });
   if (opts.toast) showToast(`Preset aplicado: ${p.label}`);
+}
+
+// Renderiza os botões de preset da missão atual
+function renderPresetButtons() {
+  const m = currentMission();
+  const html = m.presets.map((p) =>
+    `<button class="chip preset-btn" data-preset="${p.id}">⭐ ${p.label}</button>`
+  ).join('');
+  $("presetRow").innerHTML = html;
+  $$(".preset-btn").forEach((b) => {
+    b.addEventListener("click", () => applyPreset(b.dataset.preset, { toast: true }));
+  });
 }
 
 // ============================================================
@@ -415,12 +428,11 @@ function applyPreset(key, opts = {}) {
 let lastPSOResult = null; // pra mostrar comparação no próximo run
 
 async function runPSO() {
-  const venusSwingBy = $("modeSwingBy").checked;
+  const m = currentMission();
   const N = parseInt($("psoParticles").value, 10) || 200;
   const maxIter = parseInt($("psoIterations").value, 10) || 60;
   convergenceHistory = [];
 
-  // Avisa se N for muito alto (consumo de memória)
   if (N > 100_000) {
     const ok = window.confirm(
       `Você pediu ${N.toLocaleString()} partículas. ` +
@@ -431,15 +443,13 @@ async function runPSO() {
   }
 
   if (currentRun) currentRun.stop();
-
-  // Esconde card de resultado anterior; aparecerá só ao final do novo run
   $("psoResult").classList.remove("show");
 
   const t0 = performance.now();
   const pso = new PSO({
     numParticles: N,
     maxIteration: maxIter,
-    venusSwingBy,
+    missionId: currentMissionId,
     onProgress: (st) => {
       convergenceHistory = st.history;
       $("psoStatus").textContent =
@@ -463,37 +473,31 @@ async function runPSO() {
   $("btnStop").disabled = true;
   $("psoStatus").textContent = "—";
 
-  // Aplica no simulador
-  renderInputs(venusSwingBy, result.bestGlobal.slice());
+  renderInputs(result.bestGlobal.slice());
   refreshScenario({ pulse: true });
 
-  // Renderiza card de resultado destacado
   showPSOResult({
     cost: result.bestGlobalCost,
     x: result.bestGlobal,
-    venusSwingBy,
+    mission: m,
     iterations: result.iteration,
     particles: N,
     elapsed,
     prev: lastPSOResult,
   });
 
-  lastPSOResult = { cost: result.bestGlobalCost, venusSwingBy };
+  lastPSOResult = { cost: result.bestGlobalCost, missionId: currentMissionId };
   currentRun = null;
 }
 
-function showPSOResult({ cost, x, venusSwingBy, iterations, particles, elapsed, prev }) {
+function showPSOResult({ cost, x, mission, iterations, particles, elapsed, prev }) {
   const card = $("psoResult");
-  const paramNames = defaultBounds(venusSwingBy).labels;
-  const paramRows = paramNames.map((name, i) => {
+  const paramRows = mission.params.map((p, i) => {
+    const name = p.label;
     let val = x[i];
     let unit = "";
-    if (name.toLowerCase().includes("fase")) {
-      val = radToDeg(val);
-      unit = "°";
-    } else if (name.toLowerCase().includes("dias")) {
-      unit = " d";
-    }
+    if (p.kind === 'angle') { val = radToDeg(val); unit = "°"; }
+    else if (p.kind === 'days') { unit = " d"; }
     return `<div class="psr-param">
       <span class="psr-pname">${name}</span>
       <span class="psr-pvalue">${fmt(val, 3)}${unit}</span>
@@ -502,7 +506,7 @@ function showPSOResult({ cost, x, venusSwingBy, iterations, particles, elapsed, 
 
   // Comparação opcional vs run anterior do mesmo modo
   let delta = "";
-  if (prev && prev.venusSwingBy === venusSwingBy && isFinite(prev.cost)) {
+  if (prev && prev.missionId === mission.id && isFinite(prev.cost)) {
     const diff = cost - prev.cost;
     if (Math.abs(diff) > 1e-4) {
       const sign = diff < 0 ? "▼" : "▲";
@@ -546,16 +550,36 @@ function stopPSO() {
 // Mode change
 // ============================================================
 
-function bindModeRadios() {
-  ["modeSwingBy", "modeDirect"].forEach((id) => {
-    $(id).addEventListener("change", () => {
-      const venusSwingBy = $("modeSwingBy").checked;
-      const preset = venusSwingBy ? PRESETS.swingBy : PRESETS.direct;
-      renderInputs(venusSwingBy, preset.x.slice());
-      $$(".preset-btn").forEach((b) => b.classList.remove("active"));
-      refreshScenario({ pulse: true });
-    });
+function bindMissionSelect() {
+  $("missionSelect").addEventListener("change", (e) => {
+    setMission(e.target.value);
   });
+}
+
+function setMission(missionId, opts = {}) {
+  if (!Missions[missionId]) return;
+  currentMissionId = missionId;
+  const m = currentMission();
+
+  // Atualiza UI da seção da missão
+  $("missionSelect").value = missionId;
+  $("missionBadge").textContent = m.badge || '';
+  $("missionDescription").textContent = m.description || '';
+
+  // Aplica primeiro preset por default
+  const preset = m.presets[0];
+  renderInputs(preset ? preset.x.slice() : m.params.map((p) => p.bounds[0]));
+  renderPresetButtons();
+  refreshScenario({ pulse: true });
+
+  // Atualiza picker do porkchop (regenera explorações da nova missão)
+  if (typeof renderExplorationControls === 'function') {
+    // Reseta pra primeira exploração da missão
+    currentExplorationIdx = 0;
+    renderExplorationControls();
+  }
+
+  if (opts.toast) showToast(`Missão: ${m.label}`);
 }
 
 // ============================================================
@@ -563,84 +587,68 @@ function bindModeRadios() {
 // ============================================================
 
 // ============================================================
-// Porkchop: modos de exploração disponíveis (5)
+// Porkchop: explorações geradas dinamicamente por missão.
+// Gera todos os pares (i, j) de parâmetros da missão atual.
 // ============================================================
-const EXPLORATIONS = {
-  'direct-phase-time': {
-    label: 'Direta · fase Marte × tempo voo',
-    venusSwingBy: false,
-    xIdx: 0, yIdx: 1,
-    xKind: 'angle', yKind: 'days',
-    xMin: 0, xMax: 360, yMin: 120, yMax: 360,
-    xLabel: 'fase de Marte [°]', yLabel: 'tempo de voo T-M [d]',
-    fixedLabels: [],
-    explain: 'Janela de Hohmann clássica. O vale escuro em fase Marte ≈ 180° e t ≈ 259 d corresponde à transferência de Hohmann (5.71 km/s, ótimo global). O Lambert agora escolhe automaticamente o ramo prógrado (CCW como a Terra), então o mapa fica contínuo dos dois lados do 180°. Custos sobem perto de 0°/360° porque transferência de ~0° é geometricamente degenerada.',
-  },
-  'sb-phases': {
-    label: 'Swing-by · fase Marte × fase Vênus',
-    venusSwingBy: true,
-    xIdx: 0, yIdx: 1,
-    xKind: 'angle', yKind: 'angle',
-    xMin: 0, xMax: 360, yMin: 0, yMax: 360,
-    xLabel: 'fase de Marte [°]', yLabel: 'fase de Vênus [°]',
-    fixedLabels: ['T-V (dias)', 'V-M (dias)', 'r_p / R_SOI Vênus'],
-    explain: 'Geometria de alinhamento dos 3 planetas: pra cada par (fase Marte, fase Vênus) a missão é avaliada com os tempos e r_p fixos. Vales correspondem a posições astronomicamente favoráveis no momento certo.',
-  },
-  'sb-times': {
-    label: 'Swing-by · T-V × V-M',
-    venusSwingBy: true,
-    xIdx: 2, yIdx: 3,
-    xKind: 'days', yKind: 'days',
-    xMin: 30, xMax: 180, yMin: 30, yMax: 240,
-    xLabel: 'T-V [dias]', yLabel: 'V-M [dias]',
-    fixedLabels: ['fase de Marte', 'fase de Vênus', 'r_p / R_SOI Vênus'],
-    explain: 'Distribuição do tempo entre as duas pernas (Terra→Vênus e Vênus→Marte) com os planetas fixos. Mostra a sensibilidade do custo à divisão temporal — o mínimo dita a "energia" de cada perna.',
-  },
-  'sb-venus-time': {
-    label: 'Swing-by · fase Vênus × T-V',
-    venusSwingBy: true,
-    xIdx: 1, yIdx: 2,
-    xKind: 'angle', yKind: 'days',
-    xMin: 0, xMax: 360, yMin: 30, yMax: 180,
-    xLabel: 'fase de Vênus [°]', yLabel: 'T-V [d]',
-    fixedLabels: ['fase de Marte', 'V-M (dias)', 'r_p / R_SOI Vênus'],
-    explain: 'Janela de partida Terra→Vênus: pra cada posição de Vênus, quanto tempo de voo é ótimo? A linha de mínimo é uma "Hohmann a Vênus" deformada.',
-  },
-  'sb-rp-venus': {
-    label: 'Swing-by · r_p × fase Vênus',
-    venusSwingBy: true,
-    xIdx: 4, yIdx: 1,
-    xKind: 'ratio', yKind: 'angle',
-    xMin: 0.015, xMax: 0.1, yMin: 0, yMax: 360,
-    xLabel: 'r_p / R_SOI Vênus', yLabel: 'fase de Vênus [°]',
-    fixedLabels: ['fase de Marte', 'T-V (dias)', 'V-M (dias)'],
-    explain: 'Profundidade do sobrevoo (r_p) vs posição de Vênus. Quanto menor r_p, mais perto a nave passa de Vênus e maior a deflexão — mas há um trade-off com a posição certa pra essa deflexão "apontar" pra Marte.',
-  },
-};
 
-let currentExploration = 'direct-phase-time';
+let currentExplorationIdx = 0; // índice no array gerado pra missão atual
 
-// Vetor base da exploração — usa os sliders atuais quando o modo bate,
-// senão usa o preset correspondente.
-function getBaseX(exploration) {
-  const e = EXPLORATIONS[exploration];
-  if ($("modeSwingBy").checked === e.venusSwingBy) {
-    return readInputs(e.venusSwingBy);
+function getExplorationsForMission(missionId) {
+  const m = Missions[missionId];
+  const exps = [];
+  for (let i = 0; i < m.params.length; i++) {
+    for (let j = i + 1; j < m.params.length; j++) {
+      const px = m.params[i];
+      const py = m.params[j];
+      const unitOf = (p) =>
+        p.kind === 'angle' ? ' [°]' : p.kind === 'days' ? ' [d]' : '';
+      const minMax = (p) => {
+        if (p.kind === 'angle') return [0, 360];
+        return [p.bounds[0], p.bounds[1]];
+      };
+      const [xMin, xMax] = minMax(px);
+      const [yMin, yMax] = minMax(py);
+      exps.push({
+        id: `${px.key}__${py.key}`,
+        label: `${px.label} × ${py.label}`,
+        xIdx: i, yIdx: j,
+        xKind: px.kind, yKind: py.kind,
+        xMin, xMax, yMin, yMax,
+        xLabel: px.label + unitOf(px),
+        yLabel: py.label + unitOf(py),
+      });
+    }
   }
-  return (e.venusSwingBy ? PRESETS.swingBy : PRESETS.direct).x.slice();
+  return exps;
+}
+
+function currentExploration() {
+  const exps = getExplorationsForMission(currentMissionId);
+  return exps[currentExplorationIdx] || exps[0];
+}
+
+function getBaseX() {
+  return readInputs();
 }
 
 function renderExplorationControls() {
-  const e = EXPLORATIONS[currentExploration];
-  // Atualiza select
+  const m = currentMission();
+  const exps = getExplorationsForMission(currentMissionId);
+
+  // Popula select
   const sel = $("porkchopExploration");
-  if (sel.value !== currentExploration) sel.value = currentExploration;
+  sel.innerHTML = exps.map((e, i) =>
+    `<option value="${i}">${e.label}</option>`
+  ).join('');
+  currentExplorationIdx = Math.min(currentExplorationIdx, exps.length - 1);
+  sel.value = String(currentExplorationIdx);
 
-  // Explicação
+  const e = exps[currentExplorationIdx];
   const exp = $("porkchopExplain");
-  if (exp) exp.textContent = e.explain || '';
+  if (exp) {
+    exp.textContent = `Mapa de ΔV variando ${e.xLabel} e ${e.yLabel} para a missão atual (${m.label}). Outros parâmetros são mantidos fixos nos valores atuais do simulador.`;
+  }
 
-  // Inputs X / Y
   $("porkchopXLabel").textContent = e.xLabel;
   $("porkchopYLabel").textContent = e.yLabel;
   $("porkchopXMin").value = e.xMin;
@@ -648,16 +656,14 @@ function renderExplorationControls() {
   $("porkchopYMin").value = e.yMin;
   $("porkchopYMax").value = e.yMax;
 
-  // Parâmetros fixos: mostra os valores atuais que serão usados
-  const baseX = getBaseX(currentExploration);
-  const fixedNames = defaultBounds(e.venusSwingBy).labels;
-  const fixedHtml = fixedNames.map((name, i) => {
+  const baseX = getBaseX();
+  const fixedHtml = m.params.map((p, i) => {
     if (i === e.xIdx || i === e.yIdx) return null;
     let v = baseX[i];
     let unit = '';
-    if (name.toLowerCase().includes('fase')) { v = radToDeg(v); unit = '°'; }
-    else if (name.toLowerCase().includes('dias')) { unit = ' d'; }
-    return `<span class="fixed-pill"><span class="fp-name">${name}</span> <b>${fmt(v, 2)}${unit}</b></span>`;
+    if (p.kind === 'angle') { v = radToDeg(v); unit = '°'; }
+    else if (p.kind === 'days') { unit = ' d'; }
+    return `<span class="fixed-pill"><span class="fp-name">${p.label}</span> <b>${fmt(v, 2)}${unit}</b></span>`;
   }).filter(Boolean).join('');
   $("porkchopFixed").innerHTML = fixedHtml
     ? `<span class="fp-label">com:</span> ${fixedHtml}`
@@ -665,37 +671,39 @@ function renderExplorationControls() {
 }
 
 function bindPorkchop() {
-  // Select de exploração
   $("porkchopExploration").addEventListener("change", (e) => {
-    currentExploration = e.target.value;
+    currentExplorationIdx = parseInt(e.target.value, 10);
     renderExplorationControls();
   });
 
-  // Reset ranges
   $("porkchopReset").addEventListener("click", () => {
-    const e = EXPLORATIONS[currentExploration];
+    const e = currentExploration();
     $("porkchopXMin").value = e.xMin;
     $("porkchopXMax").value = e.xMax;
     $("porkchopYMin").value = e.yMin;
     $("porkchopYMax").value = e.yMax;
   });
 
-  // Botão gerar
   $("btnPorkchop").addEventListener("click", () => {
     const btn = $("btnPorkchop");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> calculando...';
     setTimeout(() => {
-      const e = EXPLORATIONS[currentExploration];
+      const e = currentExploration();
+      const explorationCfg = {
+        ...e,
+        missionId: currentMissionId,
+        venusSwingBy: currentMission().legs.some((l) => l.kind === 'flyby' && l.at === 'venus'),
+      };
       plotPorkchop("porkchop", {
-        exploration: e,
-        baseX: getBaseX(currentExploration),
+        exploration: explorationCfg,
+        baseX: getBaseX(),
         xMin: parseFloat($("porkchopXMin").value),
         xMax: parseFloat($("porkchopXMax").value),
         yMin: parseFloat($("porkchopYMin").value),
         yMax: parseFloat($("porkchopYMax").value),
         N: parseInt($("porkchopN").value, 10) || 50,
-        title: `Porkchop · ${e.label} (clique para aplicar)`,
+        title: `Porkchop · ${currentMission().short} · ${e.label} (clique para aplicar)`,
         onClick: onPorkchopClick,
       });
       btn.disabled = false;
@@ -704,25 +712,15 @@ function bindPorkchop() {
       $("porkchopHint").style.display = "flex";
     }, 20);
   });
-
-  // Inicializa controles
-  renderExplorationControls();
 }
 
 function onPorkchopClick(point) {
-  // Aplica os 2 params do porkchop, mantendo os fixos (lidos do simulador atual)
-  const e = EXPLORATIONS[currentExploration];
-
-  // Garante modo correto (swing-by ou direta)
-  $("modeSwingBy").checked = e.venusSwingBy;
-  $("modeDirect").checked = !e.venusSwingBy;
-
-  // Constrói vetor: parte do baseX, sobrescreve x e y
-  const newX = getBaseX(currentExploration);
+  const e = currentExploration();
+  const newX = getBaseX();
   newX[e.xIdx] = e.xKind === 'angle' ? degToRad(point.xValue) : point.xValue;
   newX[e.yIdx] = e.yKind === 'angle' ? degToRad(point.yValue) : point.yValue;
 
-  renderInputs(e.venusSwingBy, newX);
+  renderInputs(newX);
   $$(".preset-btn").forEach((b) => b.classList.remove("active"));
   refreshScenario({ pulse: true });
 
@@ -854,10 +852,7 @@ function bindReveal() {
 function bindEvents() {
   $("btnRun").addEventListener("click", runPSO);
   $("btnStop").addEventListener("click", stopPSO);
-  $$(".preset-btn").forEach((b) =>
-    b.addEventListener("click", () => applyPreset(b.dataset.preset, { toast: true }))
-  );
-  bindModeRadios();
+  bindMissionSelect();
   bindPorkchop();
   bindNav();
   bindReveal();
@@ -866,5 +861,5 @@ function bindEvents() {
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
-  applyPreset("swingBy");
+  setMission('mars-direct-leo');
 });

@@ -134,43 +134,66 @@ const Animation = (() => {
     return pos;
   }
 
-  // Estado completo do sistema em t (heliocêntrico inercial)
+  // Estado completo do sistema em t (no referencial central inercial).
+  // Retorna posições por body id (mission.visibleBodies). Aliases legados
+  // ('sun', 'earth', 'venus', 'mars') também são mantidos pra retrocompat.
   function stateAt(sim, t) {
-    const C = PhysicalConstants;
-    return {
-      sun: [0, 0, 0],
-      earth: planetAt(C.r_st, sim.phaseE_initial, sim.omegaE, t),
-      venus: planetAt(C.r_sv, sim.phaseV_initial, sim.omegaV, t),
-      mars: planetAt(C.r_sm, sim.phaseM_initial, sim.omegaM, t),
-      craft: craftAt(sim, t),
-    };
+    const out = { craft: craftAt(sim, t) };
+    const mission = sim.mission;
+    if (!mission) {
+      // Legado: assume corpos Marte/Vênus/Terra
+      const C = PhysicalConstants;
+      out.sun = [0, 0, 0];
+      out.earth = planetAt(C.r_st, sim.phaseE_initial, sim.omegaE, t);
+      out.venus = planetAt(C.r_sv, sim.phaseV_initial, sim.omegaV, t);
+      out.mars  = planetAt(C.r_sm, sim.phaseM_initial, sim.omegaM, t);
+      return out;
+    }
+    const centralId = mission.centralBody;
+    // Corpo central na origem (no frame helio)
+    if (centralId === 'sol') out.sun = [0, 0, 0];
+    else out[centralId] = [0, 0, 0];
+
+    // Demais corpos visíveis (que orbitam o central)
+    const phasesInitial = sim.phasesInitial || {};
+    for (const pid of mission.visibleBodies) {
+      if (pid === centralId) continue;
+      const b = Bodies[pid];
+      if (!b || !b.orbital_radius) continue;
+      const phase0 = phasesInitial[pid] ?? 0;
+      out[pid] = planetAt(b.orbital_radius, phase0, b.omega, t);
+    }
+    // Aliases legados (visualize.js/applyFrame ainda usa 'earth/venus/mars/sun')
+    if (out.terra) out.earth = out.terra;
+    if (out.marte) out.mars = out.marte;
+    if (out.sol)   out.sun = out.sol;
+    return out;
   }
 
-  // Aplica transformação de referencial. frame ∈ {'helio','geo','synodic'}.
+  // Aplica transformação de referencial preservando todas as chaves do state.
   function applyFrame(state, sim, t, frame) {
-    if (frame === 'helio') {
-      return state;
-    }
+    if (frame === 'helio') return state;
+    const out = {};
     if (frame === 'geo') {
-      const e = state.earth;
-      return {
-        sun: Vec.sub(state.sun, e),
-        earth: [0, 0, 0],
-        venus: Vec.sub(state.venus, e),
-        mars: Vec.sub(state.mars, e),
-        craft: state.craft ? Vec.sub(state.craft, e) : null,
-      };
+      // Tudo deslocado pela posição da Terra. Pra missão geocêntrica
+      // (centralBody='terra'), a Terra já está na origem, então é no-op.
+      const earth = state.earth || state.terra || [0, 0, 0];
+      for (const key of Object.keys(state)) {
+        const v = state[key];
+        if (key === 'earth' || key === 'terra') out[key] = [0, 0, 0];
+        else if (Array.isArray(v)) out[key] = Vec.sub(v, earth);
+        else out[key] = v;
+      }
+      return out;
     }
     if (frame === 'synodic') {
-      // Rotaciona tudo por -ωE*t: Terra fica fixa no eixo +x (rotativo com Terra-Sol).
       const ang = -sim.omegaE * t;
-      return {
-        sun: [0, 0, 0],
-        earth: Vec.rotZ(state.earth, ang),
-        venus: Vec.rotZ(state.venus, ang),
-        mars: Vec.rotZ(state.mars, ang),
-        craft: state.craft ? Vec.rotZ(state.craft, ang) : null,
-      };
+      for (const key of Object.keys(state)) {
+        const v = state[key];
+        if (Array.isArray(v)) out[key] = Vec.rotZ(v, ang);
+        else out[key] = v;
+      }
+      return out;
     }
     return state;
   }
