@@ -28,17 +28,30 @@
 
 <nav class="tabs" id="topNav">
   <ul>
+    <li><a href="#galeria" data-target="galeria">Galeria</a></li>
     <li><a href="#simulador" data-target="simulador">Simulador</a></li>
     <li><a href="#exploracao" data-target="exploracao">Porkchop</a></li>
     <li><a href="#otimizacao" data-target="otimizacao">PSO</a></li>
     <li><a href="#problema" data-target="problema">Problema</a></li>
     <li><a href="#metodo" data-target="metodo">Método</a></li>
-    <li><a href="#resultados" data-target="resultados">Resultados</a></li>
     <li><a href="#referencias" data-target="referencias">Refs</a></li>
   </ul>
 </nav>
 
 <main>
+
+<!-- GALERIA DE MISSÕES — entrada principal -->
+<section id="galeria" class="reveal">
+  <h2>Galeria de missões</h2>
+  <p>
+    Escolha uma missão para explorar. Cada card abre o simulador com a configuração
+    pré-carregada. Filtre por destino abaixo.
+  </p>
+  <div class="gallery-filters" id="galleryFilters">
+    <button class="chip filter-chip active" data-dest="all">Todos</button>
+  </div>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</section>
 
 <!-- SIMULADOR — primeiro pra ser o foco -->
 <section id="simulador" class="reveal">
@@ -49,20 +62,11 @@
   </p>
 
   <div class="card">
-    <!-- Seletor de missão -->
+    <!-- Header da missão atual (carregada pela galeria) -->
     <div class="mission-picker">
-      <label class="mp-label">missão:
-        <select id="missionSelect">
-          <option value="mars-direct-leo">Terra → Marte (direta de LEO)</option>
-          <option value="mars-venus-flyby">Terra → Marte (swing-by Vênus)</option>
-          <option value="mars-direct-geo">Terra → Marte (direta de GEO)</option>
-          <option value="venus-direct">Terra → Vênus (direta)</option>
-          <option value="mercury-venus-flyby">Terra → Mercúrio (swing-by Vênus)</option>
-          <option value="jupiter-mars-flyby">Terra → Júpiter (swing-by Marte)</option>
-          <option value="earth-moon">Terra → Lua (geocêntrico)</option>
-        </select>
-      </label>
+      <h3 class="mp-title" id="missionTitle">—</h3>
       <span class="mp-badge" id="missionBadge"></span>
+      <a href="#galeria" class="mp-back" id="missionBack" data-target="galeria">↩ galeria</a>
     </div>
     <p class="mission-description" id="missionDescription"></p>
     <div class="chip-row" id="presetRow"></div>
@@ -360,6 +364,12 @@
 
 <!-- Bottom nav (mobile) -->
 <nav class="bottom-nav" id="bottomNav">
+  <a href="#galeria" data-target="galeria">
+    <span class="icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </span>
+    <span>Galeria</span>
+  </a>
   <a href="#simulador" data-target="simulador" class="active">
     <span class="icon">
       <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
@@ -383,12 +393,6 @@
       <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.6.3-1 .9-1 1.7v.5"/><path d="M12 17h.01"/></svg>
     </span>
     <span>Teoria</span>
-  </a>
-  <a href="#resultados" data-target="resultados">
-    <span class="icon">
-      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8M9 21V4M15 21v-9M21 21v-6"/></svg>
-    </span>
-    <span>Resultados</span>
   </a>
 </nav>
 
