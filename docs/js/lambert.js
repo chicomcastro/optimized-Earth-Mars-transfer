@@ -399,8 +399,35 @@ const Lambert = (() => {
     };
   }
 
-  function solve(r1vec, r2vec, tf, m, muC) {
-    return lambertIzzo(r1vec.slice(), r2vec.slice(), tf, m, muC);
+  function solve(r1vec, r2vec, tf, m, muC, options = {}) {
+    // Por default, escolhe automaticamente o ramo prógrado (orbita CCW no plano xy).
+    // Se short-way for retrógrado (r1 × r2 com z < 0), troca pra long-way passando tof < 0.
+    // Pode ser desligado com options.prograde === false.
+    let signedTf = tf;
+    let r2 = r2vec.slice();
+    if (options.prograde !== false) {
+      const crossZ = r1vec[0] * r2vec[1] - r1vec[1] * r2vec[0];
+      const r1mag = Math.hypot(r1vec[0], r1vec[1]);
+      const r2mag = Math.hypot(r2vec[0], r2vec[1]);
+      const sinDth = crossZ / (r1mag * r2mag);
+      // |sin(dth)| muito pequeno → caso colinear (dth ≈ 0 ou π).
+      // Newton-Raphson do Izzo é instável aqui. Perturbamos r2 perpendicular a r1
+      // numa direção que GARANTE prógrado (CCW), pequena o bastante pra não
+      // afetar a precisão do custo (~1 km em 1.5e8 km = 1e-8).
+      if (Math.abs(sinDth) < 1e-8) {
+        const eps = r2mag * 1e-8;
+        // direção +90° a partir de r1 (CCW), normalizada
+        r2 = [r2vec[0] - (r1vec[1] / r1mag) * eps,
+              r2vec[1] + (r1vec[0] / r1mag) * eps,
+              r2vec[2]];
+        signedTf = Math.abs(tf); // short-way prógrado
+      } else if (crossZ < 0) {
+        signedTf = -Math.abs(tf); // long-way prógrado
+      } else {
+        signedTf = Math.abs(tf);
+      }
+    }
+    return lambertIzzo(r1vec.slice(), r2, signedTf, m, muC);
   }
 
   return { solve };

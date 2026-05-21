@@ -260,10 +260,18 @@ function plotPorkchop(divId, opts) {
   const layout = {
     paper_bgcolor: '#070912', plot_bgcolor: '#070912',
     font: { color: '#e8eefb', size: 11 },
-    xaxis: { title: e.xLabel, gridcolor: '#1d2742' },
-    yaxis: { title: e.yLabel, gridcolor: '#1d2742' },
+    xaxis: {
+      title: { text: e.xLabel, standoff: 12, font: { size: 12 } },
+      gridcolor: '#1d2742',
+      automargin: true,
+    },
+    yaxis: {
+      title: { text: e.yLabel, standoff: 12, font: { size: 12 } },
+      gridcolor: '#1d2742',
+      automargin: true,
+    },
     title: { text: opts.title || 'Porkchop (clique para aplicar)', font: { size: 13 } },
-    margin: { t: 40, l: 70, r: 60, b: 50 },
+    margin: { t: 40, l: 80, r: 60, b: 60 },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 
