@@ -574,7 +574,7 @@ const EXPLORATIONS = {
     xMin: 0, xMax: 360, yMin: 120, yMax: 360,
     xLabel: 'fase de Marte [°]', yLabel: 'tempo de voo T-M [d]',
     fixedLabels: [],
-    explain: 'Janela de Hohmann clássica. O vale escuro perto de fase Marte ≈ 180° e t ≈ 259 d corresponde à transferência de Hohmann (5.71 km/s). Configurações com fase > 180° viram "long-way" e o Lambert (m=0, short-way) penaliza muito.',
+    explain: 'Janela de Hohmann clássica. O vale escuro em fase Marte ≈ 180° e t ≈ 259 d corresponde à transferência de Hohmann (5.71 km/s, ótimo global). O Lambert agora escolhe automaticamente o ramo prógrado (CCW como a Terra), então o mapa fica contínuo dos dois lados do 180°. Custos sobem perto de 0°/360° porque transferência de ~0° é geometricamente degenerada.',
   },
   'sb-phases': {
     label: 'Swing-by · fase Marte × fase Vênus',

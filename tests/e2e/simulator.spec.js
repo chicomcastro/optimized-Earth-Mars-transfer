@@ -588,6 +588,34 @@ test('28 - tooltip do parâmetro abre ao clicar no "?"', async ({ page }) => {
   await shoot(page, '28-tooltip-parametro');
 });
 
+test('35 - porkchop direto agora é contínuo após 180° (long-way prógrado)', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.selectOption('#porkchopExploration', 'direct-phase-time');
+  await page.fill('#porkchopN', '40');
+  await page.click('#btnPorkchop');
+  await page.waitForFunction(
+    () => document.getElementById('porkchop')?.querySelector('svg') !== null,
+    { timeout: 90_000 }
+  );
+  await page.waitForTimeout(500);
+
+  // Verifica continuidade: ΔV em 179, 180, 181 devem ser quase iguais
+  const sample = await page.evaluate(() => {
+    const z = document.getElementById('porkchop').data[0].z;
+    const x = document.getElementById('porkchop').data[0].x;
+    const y = document.getElementById('porkchop').data[0].y;
+    // Acha a coluna mais próxima de 180 e a linha mais próxima de t=259
+    let xi = x.reduce((a, v, i) => (Math.abs(v - 180) < Math.abs(x[a] - 180) ? i : a), 0);
+    let yj = y.reduce((a, v, j) => (Math.abs(v - 259) < Math.abs(y[a] - 259) ? j : a), 0);
+    return { left: z[yj][xi - 2], mid: z[yj][xi], right: z[yj][xi + 2] };
+  });
+  // Continuidade: passo de fase ~9° → ΔV varia pouco
+  expect(Math.abs(sample.left - sample.mid)).toBeLessThan(2);
+  expect(Math.abs(sample.right - sample.mid)).toBeLessThan(2);
+
+  await shoot(page, '35-porkchop-continuo');
+});
+
 test('17 - rotação CCW: Marte a 110° vai pro 2º quadrante (cima-esquerda)', async ({ page }) => {
   await page.click('label[for="modeDirect"]');
   await page.waitForTimeout(200);
