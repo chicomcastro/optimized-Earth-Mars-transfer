@@ -1,240 +1,348 @@
-// Porte de simulate.m + custo.m
-// Calcula o custo (deltaV total) de uma trajetória dados parâmetros em x
-// e retorna também dados auxiliares para visualização.
+// =============================================================================
+// Simulação genérica baseada em definição declarativa de missão.
+//
+// API:
+//   simulate(missionId, x)  → { cost, deltaV, trajetorias, ... }
+//   cost(missionId, x)      → number
+//
+// Backward-compat:
+//   simulate(x, { venusSwingBy }) → mapeia pra missão mars-direct-leo ou mars-venus-flyby
+// =============================================================================
 
-function simulate(x, options = {}) {
-  const venusSwingBy = options.venusSwingBy !== false; // default true
-  const C = PhysicalConstants;
-  const base = [1, 0, 0];
-  const banco_v_chegada = [];
-  const banco_v_saida = [];
-  const banco_v_inicial = [];
-  const deltaV = [];
+function _isMissionId(arg) {
+  return typeof arg === 'string' && Missions[arg];
+}
 
-  // pega_parametro com índice
-  let idx = 0;
-  const peek = () => x[idx++];
-
-  const phase_terra = 0;
-  const phase_marte = peek();
-  let phase_venus, t_terra_venus, t_venus_marte, rp_factor, t_terra_marte;
-  if (venusSwingBy) {
-    phase_venus = peek();
-    t_terra_venus = peek();
-    t_venus_marte = peek();
-    rp_factor = peek();
+function simulate(missionOrX, xOrOptions) {
+  // Dispatch: nova API (missionId, x) ou legacy (x, options)
+  let mission, x;
+  if (_isMissionId(missionOrX)) {
+    mission = Missions[missionOrX];
+    x = xOrOptions;
   } else {
-    phase_venus = 0;
-    t_terra_marte = peek();
+    // legacy
+    x = missionOrX;
+    const opts = xOrOptions || {};
+    const id = opts.venusSwingBy !== false ? 'mars-venus-flyby' : 'mars-direct-leo';
+    mission = Missions[id];
+  }
+  return _simulateMission(mission, x);
+}
+
+function cost(missionOrX, xOrOptions) {
+  return simulate(missionOrX, xOrOptions).cost;
+}
+
+function _simulateMission(m, x) {
+  const central = Bodies[m.centralBody];
+  const mu_central = central.mu;
+  const base = [1, 0, 0];
+
+  // Lê parâmetros declarativos do vetor x na ordem definida
+  const paramMap = {};
+  m.params.forEach((p, i) => { paramMap[p.key] = x[i]; });
+
+  // Resolve a fase angular de cada corpo visível
+  // - Corpo de partida (departure.body): sempre na fase 0 do nosso referencial
+  // - Outros corpos: usam phase_<body>; corpo destino usa o param que existe
+  const departureBodyId = m.departure.body;
+  const phases = { [departureBodyId]: 0 };
+  for (const p of m.params) {
+    const match = p.key.match(/^phase_(.+)$/);
+    if (match) phases[match[1]] = paramMap[p.key];
   }
 
-  const r_terra_sol = Vec.rotZ(Vec.scale(base, C.r_st), phase_terra);
-  const r_venus_sol = Vec.rotZ(Vec.scale(base, C.r_sv), phase_venus);
-  const r_marte_sol = Vec.rotZ(Vec.scale(base, C.r_sm), phase_marte);
-  const v_terra_sol = Vec.rotZ(
-    Vec.scale(base, Math.sqrt(C.mi_sol / Vec.norm(r_terra_sol))),
-    phase_terra + Math.PI / 2
-  );
-  const v_venus_sol = Vec.rotZ(
-    Vec.scale(base, Math.sqrt(C.mi_sol / Vec.norm(r_venus_sol))),
-    phase_venus + Math.PI / 2
-  );
-  const v_marte_sol = Vec.rotZ(
-    Vec.scale(base, Math.sqrt(C.mi_sol / Vec.norm(r_marte_sol))),
-    phase_marte + Math.PI / 2
-  );
+  // Posições dos corpos no referencial inercial central no momento "padrão"
+  // (na verdade, cada leg tem seu próprio referencial temporal — abordamos abaixo)
+  const positionOf = (bodyId, phase) => {
+    const b = Bodies[bodyId];
+    if (!b.parent || b.parent !== m.centralBody) {
+      // Corpo central: na origem
+      if (bodyId === m.centralBody) return [0, 0, 0];
+      // Caso edge: corpo não orbita o central diretamente — sem suporte por enquanto
+      return [0, 0, 0];
+    }
+    return Vec.rotZ(Vec.scale(base, b.orbital_radius), phase);
+  };
+  const velocityOf = (bodyId, phase) => {
+    const b = Bodies[bodyId];
+    if (bodyId === m.centralBody || b.parent !== m.centralBody) return [0, 0, 0];
+    const vMag = Math.sqrt(mu_central / b.orbital_radius);
+    return Vec.rotZ(Vec.scale(base, vMag), phase + Math.PI / 2);
+  };
 
-  const omegaVec = (r, v) =>
-    Vec.scale(Vec.cross(r, v), 1 / Math.pow(Vec.norm(r), 2));
-  const omega_venus_sol = omegaVec(r_venus_sol, v_venus_sol);
+  // Órbitas de partida/chegada (alt_km → raio em torno do corpo)
+  const orbitRadius = (orbit, bodyId) => {
+    const b = Bodies[bodyId];
+    if (orbit.kind === 'circular') {
+      if ('r_km' in orbit) return orbit.r_km;
+      return b.radius + orbit.alt_km;
+    }
+    throw new Error('orbita não suportada: ' + orbit.kind);
+  };
+  const R_departure = orbitRadius(m.departure.orbit, m.departure.body);
+  const R_arrival   = orbitRadius(m.arrival.orbit,   m.arrival.body);
+  const mu_departure = Bodies[m.departure.body].mu;
+  const mu_arrival   = Bodies[m.arrival.body].mu;
 
-  let v_chegada_final;
+  // Constrói as posições "alvo" de cada leg no momento certo
+  const positions = {};
+  const velocities = {};
+  for (const bodyId of m.visibleBodies) {
+    const phase = phases[bodyId] ?? 0;
+    positions[bodyId] = positionOf(bodyId, phase);
+    velocities[bodyId] = velocityOf(bodyId, phase);
+  }
+  // Edge case: se o corpo de partida É o corpo central (Terra→Lua, geocêntrico),
+  // a nave começa em órbita ao redor dele a R_departure. Deslocamos posições[departureBody]
+  // pra essa órbita inicial — Lambert tem um r1 ≠ (0,0,0).
+  if (m.departure.body === m.centralBody) {
+    positions[m.departure.body] = [R_departure, 0, 0];
+    velocities[m.departure.body] = [0, Math.sqrt(mu_central / R_departure), 0];
+  }
+
+  const deltaV = [];
   const trajetorias = [];
+  const banco_v_chegada = [];
+  const banco_v_saida = [];
+
+  let v_chegada_anterior = null; // velocidade da nave ao chegar no fim da leg anterior
+  let r_chegada_anterior = null;
+
+  // Velocidade circular na órbita de partida — usada no cálculo da deflexão
+  // do flyby (replicando convenção do código MATLAB original)
+  const v_circ_departure = Math.sqrt(mu_departure / R_departure);
 
   try {
-    if (venusSwingBy) {
-      // 1. Transferência Terra-Vênus
-      const rp = rp_factor * C.R_soi_venus;
-      let res = Lambert.solve(
-        r_terra_sol, r_venus_sol, t_terra_venus, 0, C.mi_sol
-      );
-      if (!isFinite(res.V1[0]) || res.exitflag < 0) return inf();
+    for (let legIdx = 0; legIdx < m.legs.length; legIdx++) {
+      const leg = m.legs[legIdx];
 
-      banco_v_chegada.push(res.V2);
-      banco_v_saida.push(res.V1);
-      trajetorias.push({
-        label: "Trajetória Terra-Vênus",
-        r0: r_terra_sol, v0: res.V1, mi: C.mi_sol,
-      });
+      if (leg.kind === 'lambert') {
+        const r1 = positions[leg.from];
+        const r2 = positions[leg.to];
+        const tof = paramMap[leg.timeParam];
+        const res = Lambert.solve(r1, r2, tof, 0, mu_central);
+        if (!isFinite(res.V1[0]) || res.exitflag < 0) return _inf(m, x);
 
-      let v_inicial = Math.sqrt(C.mi_terra / C.R_oe_terra);
-      let v_inf_vec = Vec.sub(res.V1, v_terra_sol);
-      let v_saida_mag = Math.sqrt(
-        Vec.dot(v_inf_vec, v_inf_vec) + (2 * C.mi_terra) / C.R_oe_terra
-      );
-      deltaV.push(Math.abs(v_saida_mag - v_inicial));
+        banco_v_saida.push(res.V1);
+        banco_v_chegada.push(res.V2);
+        trajetorias.push({
+          label: `Trajetória ${Bodies[leg.from].label}-${Bodies[leg.to].label}`,
+          r0: r1, v0: res.V1, mi: mu_central,
+        });
 
-      // 2. Venus swing-by
-      let v_inf2 = Vec.sub(res.V2, Vec.cross(omega_venus_sol, r_venus_sol));
-      const sin_def_venus = 1 / (1 + (rp * Math.abs(v_inicial)) / C.mi_venus);
-      const def_venus = Math.asin(clamp(sin_def_venus, -1, 1));
-      const v_p_versor = Vec.rotZ(
-        Vec.scale(v_inf2, 1 / Vec.norm(v_inf2)), def_venus
-      );
-      const v_p_mag = Math.sqrt(
-        Vec.dot(v_inf2, v_inf2) + (2 * C.mi_venus) / (C.R_v + rp)
-      );
-      // ignorado conforme original (linhas comentadas) - apenas para vis
-      void Vec.scale(v_p_versor, v_p_mag);
+        // Se é a primeira leg, calcula ΔV de partida (escape da SOI do corpo de partida)
+        if (legIdx === 0) {
+          const v_inicial = Math.sqrt(mu_departure / R_departure); // circular
+          const v_inf = Vec.sub(res.V1, velocities[m.departure.body]);
+          const v_partida = Math.sqrt(Vec.dot(v_inf, v_inf) + (2 * mu_departure) / R_departure);
+          deltaV.push(Math.abs(v_partida - v_inicial));
+        } else {
+          // Vem de uma leg anterior (flyby ou outra). ΔV é o match entre velocidade
+          // pós-flyby e a velocidade Lambert requerida nesta leg.
+          if (v_chegada_anterior) {
+            deltaV.push(Vec.norm(Vec.sub(res.V1, v_chegada_anterior)));
+          }
+        }
 
-      // 3. Transferência Vênus-Marte
-      const v_inicial_vm = Vec.add(
-        Vec.rotZ(v_inf2, 2 * def_venus),
-        Vec.cross(omega_venus_sol, r_venus_sol)
-      );
-      const res2 = Lambert.solve(
-        r_venus_sol, r_marte_sol, t_venus_marte, 0, C.mi_sol
-      );
-      if (!isFinite(res2.V1[0]) || res2.exitflag < 0) return inf();
+        v_chegada_anterior = res.V2;
+        r_chegada_anterior = r2;
+      } else if (leg.kind === 'flyby') {
+        // Approximação 2D: deflexão da velocidade hiperbólica em torno do corpo
+        const flybyBody = Bodies[leg.at];
+        const rp_factor = paramMap[leg.rpParam];
+        const rp = rp_factor * flybyBody.soi;
 
-      banco_v_chegada.push(res2.V2);
-      banco_v_saida.push(res2.V1);
-      trajetorias.push({
-        label: "Trajetória Vênus-Marte",
-        r0: r_venus_sol, v0: res2.V1, mi: C.mi_sol,
-      });
+        // omega do corpo no central
+        const r_flyby = positions[leg.at];
+        const v_flyby = velocities[leg.at];
+        const omega = Vec.scale(
+          Vec.cross(r_flyby, v_flyby),
+          1 / Math.pow(Vec.norm(r_flyby), 2)
+        );
 
-      deltaV.push(Vec.norm(Vec.sub(res2.V1, v_inicial_vm)));
-      v_chegada_final = res2.V2;
-    } else {
-      // Transferência Terra-Marte direta
-      const res = Lambert.solve(
-        r_terra_sol, r_marte_sol, t_terra_marte, 0, C.mi_sol
-      );
-      if (!isFinite(res.V1[0]) || res.exitflag < 0) return inf();
+        // v_inf (relativa ao corpo do flyby)
+        let v_inf = Vec.sub(v_chegada_anterior, Vec.cross(omega, r_flyby));
 
-      const v_inicial = Math.sqrt(C.mi_terra / C.R_oe_terra);
-      const v_inf_vec = Vec.sub(res.V1, v_terra_sol);
-      const v_final = Math.sqrt(
-        Vec.dot(v_inf_vec, v_inf_vec) + (2 * C.mi_terra) / C.R_oe_terra
-      );
-      deltaV.push(Math.abs(v_final - v_inicial));
+        // Aprox. usada no código MATLAB original: usa a velocidade circular
+        // de partida (escalar) no cálculo da deflexão. É uma simplificação que
+        // mantém os presets calibrados — o usuário pode rodar PSO pra refinar.
+        const sin_def = 1 / (1 + (rp * v_circ_departure) / flybyBody.mu);
+        const def = Math.asin(clamp(sin_def, -1, 1));
 
-      banco_v_chegada.push(res.V2);
-      banco_v_inicial.push(v_inicial);
-      banco_v_saida.push(res.V1);
-      trajetorias.push({
-        label: "Trajetória Terra-Marte",
-        r0: r_terra_sol, v0: res.V1, mi: C.mi_sol,
-      });
-      v_chegada_final = res.V2;
+        // Aplica deflexão 2D
+        v_chegada_anterior = Vec.add(
+          Vec.rotZ(v_inf, 2 * def),
+          Vec.cross(omega, r_flyby)
+        );
+        // flyby não custa ΔV (gravity assist puro)
+      }
     }
 
-    // Chegada em Marte
-    const v_inf_m = Vec.sub(v_chegada_final, v_marte_sol);
-    const v_p = Math.sqrt(
-      Vec.dot(v_inf_m, v_inf_m) + (2 * C.mi_marte) / C.R_oe_marte
-    );
-    const v_inicial = v_p;
-    const v_final = Math.sqrt(C.mi_marte / C.R_oe_marte);
-    deltaV.push(Math.abs(v_final - v_inicial));
+    // ΔV de captura na chegada
+    const arrivalBodyVel = velocities[m.arrival.body];
+    const v_inf_arrival = Vec.sub(v_chegada_anterior, arrivalBodyVel);
+    const v_inf_mag = Vec.norm(v_inf_arrival);
+    const v_p = Math.sqrt(v_inf_mag * v_inf_mag + (2 * mu_arrival) / R_arrival);
+    const v_circ = Math.sqrt(mu_arrival / R_arrival);
+    deltaV.push(Math.abs(v_p - v_circ));
 
     const total = deltaV.reduce((a, b) => a + b, 0);
-    if (!isFinite(total)) return inf();
+    if (!isFinite(total)) return _inf(m, x);
 
-    // Tempo total da missão em segundos
+    // ----- Dados auxiliares pra animação/visualização -----
     const DAYS = 86400;
-    const legDurations_s = venusSwingBy
-      ? [t_terra_venus * DAYS, t_venus_marte * DAYS]
-      : [t_terra_marte * DAYS];
+    const legDurations_s = m.legs
+      .filter((l) => l.kind === 'lambert')
+      .map((l) => paramMap[l.timeParam] * DAYS);
     const t_total_s = legDurations_s.reduce((a, b) => a + b, 0);
 
-    // Mean motion dos planetas (rad/s, CCW)
-    const omegaPlanet = (r) => Math.sqrt(C.mi_sol / Math.pow(r, 3));
-    const omegaE = omegaPlanet(C.r_st);
-    const omegaV = omegaPlanet(C.r_sv);
-    const omegaM = omegaPlanet(C.r_sm);
-
-    // Posições iniciais (t=0, momento da partida da Terra)
-    // Terra: sempre parte de fase 0. Vênus e Marte: voltam o tempo de voo
-    // até onde estavam no t=0 (eles giram CCW, então sub).
-    const phaseE_initial = 0;
-    const phaseV_initial = venusSwingBy
-      ? phase_venus - omegaV * (t_terra_venus * DAYS)
-      : 0;
-    const phaseM_initial = phase_marte - omegaM * t_total_s;
-
-    const r_terra_sol_initial = r_terra_sol;
-    const r_venus_sol_initial = Vec.rotZ(Vec.scale(base, C.r_sv), phaseV_initial);
-    const r_marte_sol_initial = Vec.rotZ(Vec.scale(base, C.r_sm), phaseM_initial);
-
-    // Acumula durações pra saber em qual leg estamos a cada t
     const legStarts_s = [0];
     for (let i = 0; i < legDurations_s.length; i++) {
       legStarts_s.push(legStarts_s[i] + legDurations_s[i]);
+    }
+
+    // Fases iniciais (t=0) de cada corpo visível
+    const phasesInitial = {};
+    for (const bodyId of m.visibleBodies) {
+      if (bodyId === m.centralBody) { phasesInitial[bodyId] = 0; continue; }
+      const phaseAtArrival = phases[bodyId] ?? 0;
+      // O "tempo de chegada" do corpo depende de quando ele aparece na missão.
+      // Aproximação: usamos t_total_s (tempo até o fim). Vale exatamente pro
+      // corpo de destino. Para corpos intermediários (flyby), tempo é diferente —
+      // a aproximação não afeta o cálculo do custo, só a vis dos shadows.
+      const b = Bodies[bodyId];
+      phasesInitial[bodyId] = phaseAtArrival - b.omega * t_total_s;
+    }
+
+    // Para flyby bodies: usa o tempo de cada leg
+    let elapsed_s = 0;
+    for (const leg of m.legs) {
+      if (leg.kind === 'lambert') {
+        elapsed_s += paramMap[leg.timeParam] * DAYS;
+      } else if (leg.kind === 'flyby') {
+        const b = Bodies[leg.at];
+        phasesInitial[leg.at] = (phases[leg.at] ?? 0) - b.omega * elapsed_s;
+      }
+    }
+
+    const positionsInitial = {};
+    for (const bodyId of m.visibleBodies) {
+      positionsInitial[bodyId] = positionOf(bodyId, phasesInitial[bodyId] ?? 0);
     }
 
     return {
       cost: total,
       deltaV,
       trajetorias,
-      r_terra_sol, r_venus_sol, r_marte_sol,
-      v_terra_sol, v_venus_sol, v_marte_sol,
+      mission: m,
+      positions, velocities, phases,
+      positionsInitial, phasesInitial,
       banco_v_saida, banco_v_chegada,
-      phase_terra, phase_venus, phase_marte,
-      // Estado inicial (t=0)
-      r_terra_sol_initial, r_venus_sol_initial, r_marte_sol_initial,
-      phaseE_initial, phaseV_initial, phaseM_initial,
-      // Animação
-      t_total_s,
-      legDurations_s,
-      legStarts_s,
-      omegaE, omegaV, omegaM,
-      venusSwingBy,
+      // Aliases para retrocompatibilidade com animation/visualize antigos
+      r_terra_sol: positions['terra'] || [0, 0, 0],
+      r_venus_sol: positions['venus'] || [0, 0, 0],
+      r_marte_sol: positions['marte'] || [0, 0, 0],
+      v_terra_sol: velocities['terra'] || [0, 0, 0],
+      v_venus_sol: velocities['venus'] || [0, 0, 0],
+      v_marte_sol: velocities['marte'] || [0, 0, 0],
+      r_terra_sol_initial: positionsInitial['terra'] || [0, 0, 0],
+      r_venus_sol_initial: positionsInitial['venus'] || [0, 0, 0],
+      r_marte_sol_initial: positionsInitial['marte'] || [0, 0, 0],
+      phaseE_initial: phasesInitial[m.departure.body] ?? 0,
+      phaseV_initial: phasesInitial['venus'] ?? 0,
+      phaseM_initial: phasesInitial['marte'] ?? phasesInitial[m.arrival.body] ?? 0,
+      phase_terra: phases['terra'] ?? 0,
+      phase_venus: phases['venus'] ?? 0,
+      phase_marte: phases['marte'] ?? phases[m.arrival.body] ?? 0,
+      t_total_s, legDurations_s, legStarts_s,
+      omegaE: Bodies['terra']?.omega || 0,
+      omegaV: Bodies['venus']?.omega || 0,
+      omegaM: Bodies['marte']?.omega || 0,
+      venusSwingBy: m.legs.some((l) => l.kind === 'flyby' && l.at === 'venus'),
     };
   } catch (e) {
-    return inf();
-  }
-
-  function inf() {
-    const C = PhysicalConstants;
-    const DAYS = 86400;
-    const legDurations_s = venusSwingBy
-      ? [(t_terra_venus || 100) * DAYS, (t_venus_marte || 200) * DAYS]
-      : [(t_terra_marte || 250) * DAYS];
-    const t_total_s = legDurations_s.reduce((a, b) => a + b, 0);
-    const omegaPlanet = (r) => Math.sqrt(C.mi_sol / Math.pow(r, 3));
-    const omegaE = omegaPlanet(C.r_st);
-    const omegaV = omegaPlanet(C.r_sv);
-    const omegaM = omegaPlanet(C.r_sm);
-    const phaseV_initial = venusSwingBy
-      ? phase_venus - omegaV * legDurations_s[0]
-      : 0;
-    const phaseM_initial = phase_marte - omegaM * t_total_s;
-    const r_marte_sol_initial = Vec.rotZ(Vec.scale([1,0,0], C.r_sm), phaseM_initial);
-    const r_venus_sol_initial = Vec.rotZ(Vec.scale([1,0,0], C.r_sv), phaseV_initial);
-    const legStarts_s = [0];
-    for (let i = 0; i < legDurations_s.length; i++) {
-      legStarts_s.push(legStarts_s[i] + legDurations_s[i]);
-    }
-    return {
-      cost: Infinity,
-      deltaV: [Infinity],
-      trajetorias: [],
-      degenerate: true,
-      r_terra_sol, r_venus_sol, r_marte_sol,
-      v_terra_sol, v_venus_sol, v_marte_sol,
-      banco_v_saida, banco_v_chegada,
-      phase_terra, phase_venus, phase_marte,
-      r_terra_sol_initial: r_terra_sol, r_venus_sol_initial, r_marte_sol_initial,
-      phaseE_initial: 0, phaseV_initial, phaseM_initial,
-      t_total_s, legDurations_s, legStarts_s,
-      omegaE, omegaV, omegaM,
-      venusSwingBy,
-    };
+    return _inf(m, x);
   }
 }
 
-function cost(x, options) {
-  return simulate(x, options).cost;
+function _inf(m, x) {
+  const central = Bodies[m.centralBody];
+  const base = [1, 0, 0];
+  const positionOf = (bodyId, phase) => {
+    const b = Bodies[bodyId];
+    if (bodyId === m.centralBody) return [0, 0, 0];
+    return Vec.rotZ(Vec.scale(base, b.orbital_radius), phase);
+  };
+  const velocityOf = (bodyId, phase) => {
+    const b = Bodies[bodyId];
+    if (bodyId === m.centralBody) return [0, 0, 0];
+    const vMag = Math.sqrt(central.mu / b.orbital_radius);
+    return Vec.rotZ(Vec.scale(base, vMag), phase + Math.PI / 2);
+  };
+
+  const paramMap = {};
+  m.params.forEach((p, i) => { paramMap[p.key] = x[i]; });
+  const phases = { [m.departure.body]: 0 };
+  for (const p of m.params) {
+    const match = p.key.match(/^phase_(.+)$/);
+    if (match) phases[match[1]] = paramMap[p.key];
+  }
+
+  const positions = {}, velocities = {};
+  for (const bodyId of m.visibleBodies) {
+    const ph = phases[bodyId] ?? 0;
+    positions[bodyId] = positionOf(bodyId, ph);
+    velocities[bodyId] = velocityOf(bodyId, ph);
+  }
+
+  const DAYS = 86400;
+  const legDurations_s = m.legs
+    .filter((l) => l.kind === 'lambert')
+    .map((l) => (paramMap[l.timeParam] || 100) * DAYS);
+  const t_total_s = legDurations_s.reduce((a, b) => a + b, 0);
+  const legStarts_s = [0];
+  for (let i = 0; i < legDurations_s.length; i++) {
+    legStarts_s.push(legStarts_s[i] + legDurations_s[i]);
+  }
+
+  const phasesInitial = {};
+  const positionsInitial = {};
+  for (const bodyId of m.visibleBodies) {
+    if (bodyId === m.centralBody) { phasesInitial[bodyId] = 0; positionsInitial[bodyId] = [0,0,0]; continue; }
+    const b = Bodies[bodyId];
+    phasesInitial[bodyId] = (phases[bodyId] ?? 0) - b.omega * t_total_s;
+    positionsInitial[bodyId] = positionOf(bodyId, phasesInitial[bodyId]);
+  }
+
+  return {
+    cost: Infinity,
+    deltaV: [Infinity],
+    trajetorias: [],
+    degenerate: true,
+    mission: m,
+    positions, velocities, phases,
+    positionsInitial, phasesInitial,
+    banco_v_saida: [], banco_v_chegada: [],
+    r_terra_sol: positions['terra'] || [0, 0, 0],
+    r_venus_sol: positions['venus'] || [0, 0, 0],
+    r_marte_sol: positions['marte'] || [0, 0, 0],
+    v_terra_sol: velocities['terra'] || [0, 0, 0],
+    v_venus_sol: velocities['venus'] || [0, 0, 0],
+    v_marte_sol: velocities['marte'] || [0, 0, 0],
+    r_terra_sol_initial: positionsInitial['terra'] || [0, 0, 0],
+    r_venus_sol_initial: positionsInitial['venus'] || [0, 0, 0],
+    r_marte_sol_initial: positionsInitial['marte'] || [0, 0, 0],
+    phaseE_initial: phasesInitial[m.departure.body] ?? 0,
+    phaseV_initial: phasesInitial['venus'] ?? 0,
+    phaseM_initial: phasesInitial['marte'] ?? phasesInitial[m.arrival.body] ?? 0,
+    phase_terra: phases['terra'] ?? 0,
+    phase_venus: phases['venus'] ?? 0,
+    phase_marte: phases['marte'] ?? phases[m.arrival.body] ?? 0,
+    t_total_s, legDurations_s, legStarts_s,
+    omegaE: Bodies['terra']?.omega || 0,
+    omegaV: Bodies['venus']?.omega || 0,
+    omegaM: Bodies['marte']?.omega || 0,
+    venusSwingBy: m.legs.some((l) => l.kind === 'flyby' && l.at === 'venus'),
+  };
 }

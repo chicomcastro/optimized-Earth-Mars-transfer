@@ -34,20 +34,34 @@ class PSO {
   constructor({
     numParticles = 200,
     maxIteration = 50,
-    venusSwingBy = true,
+    missionId,                       // novo: missão a otimizar
+    venusSwingBy = true,              // legado (mapeia pra missionId)
     w = 0.9,
     phip = 0.6,
     phig = 0.8,
     lb, ub,
     onProgress,
   } = {}) {
-    const bnd = (lb && ub) ? { lb, ub } : defaultBounds(venusSwingBy);
-    this.lb = bnd.lb;
-    this.ub = bnd.ub;
+    // Resolve missão
+    if (!missionId) {
+      missionId = venusSwingBy ? 'mars-venus-flyby' : 'mars-direct-leo';
+    }
+    this.missionId = missionId;
+    const mission = (typeof Missions !== 'undefined') ? Missions[missionId] : null;
+
+    // Bounds: explícitos > da missão > defaults legados
+    if (lb && ub) {
+      this.lb = lb; this.ub = ub;
+    } else if (mission) {
+      this.lb = mission.params.map((p) => p.bounds[0]);
+      this.ub = mission.params.map((p) => p.bounds[1]);
+    } else {
+      const bnd = defaultBounds(venusSwingBy);
+      this.lb = bnd.lb; this.ub = bnd.ub;
+    }
     this.dim = this.lb.length;
     this.numParticles = numParticles;
     this.maxIteration = maxIteration;
-    this.venusSwingBy = venusSwingBy;
     this.w = w; this.phip = phip; this.phig = phig;
     this.onProgress = onProgress;
 
@@ -56,14 +70,14 @@ class PSO {
     this.particles = [];
     this.iteration = 0;
     this._stop = false;
-    this.history = []; // melhor custo por iteração
+    this.history = [];
 
     for (let i = 0; i < numParticles; i++) {
       const xi = randomUniform(this.lb, this.ub);
       const delta = this.ub.map((u, k) => u - this.lb[k]);
       const negDelta = delta.map((d) => -d);
       const vi = randomUniform(negDelta, delta);
-      const ci = cost(xi, { venusSwingBy: this.venusSwingBy });
+      const ci = cost(this.missionId, xi);
       this.particles.push({
         x: xi, v: vi, best: xi.slice(), bestCost: ci,
       });
@@ -90,7 +104,7 @@ class PSO {
           + this.phig * rg * (this.bestGlobal[k] - p.x[k]);
         p.x[k] = Math.min(Math.max(p.x[k] + p.v[k], this.lb[k]), this.ub[k]);
       }
-      const ci = cost(p.x, { venusSwingBy: this.venusSwingBy });
+      const ci = cost(this.missionId, p.x);
       if (ci < p.bestCost) {
         p.bestCost = ci;
         p.best = p.x.slice();

@@ -4,13 +4,18 @@
 const UA = 1.496e8;
 
 // Constrói os traces base da trajetória em um dado frame de referência.
-// Inclui órbitas planetárias (helio only), planetas, nave, trail, shadows.
+// Mission-aware: respeita visibleBodies, plotUnit, e centralBody.
 function buildTrajectoryTraces(sim, opts) {
   const t = opts.t ?? sim.t_total_s;
   const frame = opts.frame || 'helio';
   const showShadow = !!opts.showShadow;
-  const C = PhysicalConstants;
   const traces = [];
+
+  // Escala de plot: UA pra missões heliocêntricas, 1000 km pra geo (Lua).
+  // sim.mission.plotUnit é 'AU' ou 'kkm'
+  const mission = sim.mission;
+  const scale_km = (mission && mission.plotUnit === 'kkm') ? 1000 : UA;
+  const unitLabel = (mission && mission.plotUnit === 'kkm') ? 'mil km' : 'UA';
 
   // Estado atual e shadow
   const stCur = Animation.stateAt(sim, t);
@@ -18,15 +23,22 @@ function buildTrajectoryTraces(sim, opts) {
   const st0 = Animation.stateAt(sim, 0);
   const fr0 = Animation.applyFrame(st0, sim, 0, frame);
 
+  // Lista de corpos a renderizar (vem da missão; fallback nos default)
+  const visibleBodies = (mission && mission.visibleBodies)
+    || ['sol', 'terra', 'venus', 'marte'];
+  // Sol/corpo central vai à parte
+  const centralId = mission ? mission.centralBody : 'sol';
+  const planetIds = visibleBodies.filter((id) => id !== centralId);
+
   // === ÓRBITAS DE FUNDO ===
   if (frame === 'helio') {
-    // Círculos das órbitas planetárias (Sun-centered, planos)
+    // Círculos das órbitas (em torno do corpo central) — apenas para corpos visíveis
     const circleAt = (R, name, color) => {
       const xs = [], ys = [];
       for (let i = 0; i <= 360; i++) {
         const a = (i * Math.PI) / 180;
-        xs.push((R * Math.cos(a)) / UA);
-        ys.push((R * Math.sin(a)) / UA);
+        xs.push((R * Math.cos(a)) / scale_km);
+        ys.push((R * Math.sin(a)) / scale_km);
       }
       return {
         x: xs, y: ys, mode: 'lines', type: 'scatter', name,
@@ -34,23 +46,23 @@ function buildTrajectoryTraces(sim, opts) {
         hoverinfo: 'name', showlegend: true,
       };
     };
-    traces.push(circleAt(C.r_st, 'Órbita Terra', '#3da9fc'));
-    traces.push(circleAt(C.r_sv, 'Órbita Vênus', '#f7c948'));
-    traces.push(circleAt(C.r_sm, 'Órbita Marte', '#ef4444'));
+    for (const pid of planetIds) {
+      const b = Bodies[pid];
+      if (b && b.orbital_radius) {
+        traces.push(circleAt(b.orbital_radius, `Órbita ${b.label}`, b.color));
+      }
+    }
   } else {
     // Em geo/synodic, plota os traços (epicycles) dos planetas no frame
-    const planets = [
-      { key: 'earth', name: 'Caminho Terra', color: '#3da9fc' },
-      { key: 'venus', name: 'Caminho Vênus', color: '#f7c948' },
-      { key: 'mars', name: 'Caminho Marte', color: '#ef4444' },
-    ];
-    for (const p of planets) {
-      const pts = Animation.planetTrail(sim, p.key, sim.t_total_s, frame, 200);
+    for (const pid of planetIds) {
+      const b = Bodies[pid];
+      if (!b) continue;
+      const pts = Animation.planetTrail(sim, pid, sim.t_total_s, frame, 200);
       traces.push({
-        x: pts.map((q) => q[0] / UA),
-        y: pts.map((q) => q[1] / UA),
-        mode: 'lines', type: 'scatter', name: p.name,
-        line: { color: p.color, dash: 'dot', width: 1 },
+        x: pts.map((q) => q[0] / scale_km),
+        y: pts.map((q) => q[1] / scale_km),
+        mode: 'lines', type: 'scatter', name: `Caminho ${b.label}`,
+        line: { color: b.color, dash: 'dot', width: 1 },
         hoverinfo: 'name', showlegend: true, opacity: 0.55,
       });
     }
@@ -58,45 +70,57 @@ function buildTrajectoryTraces(sim, opts) {
 
   // === SHADOWS (posição inicial dos planetas) ===
   if (showShadow) {
-    const shadowMarker = (pos, name, color) => ({
-      x: [pos[0] / UA], y: [pos[1] / UA],
-      mode: 'markers', type: 'scatter', name: `${name} (t=0)`,
-      marker: { size: 9, color, opacity: 0.32, symbol: 'circle-open', line: { width: 2, color } },
-      hovertemplate: `${name} em t=0<extra></extra>`, showlegend: true,
-    });
-    traces.push(shadowMarker(fr0.earth, 'Terra', '#3da9fc'));
-    traces.push(shadowMarker(fr0.venus, 'Vênus', '#f7c948'));
-    traces.push(shadowMarker(fr0.mars, 'Marte', '#ef4444'));
+    for (const pid of planetIds) {
+      const b = Bodies[pid];
+      const pos = fr0[pid] || (pid === 'earth' && fr0.earth) || (pid === 'venus' && fr0.venus) || (pid === 'mars' && fr0.mars);
+      if (!b || !pos) continue;
+      traces.push({
+        x: [pos[0] / scale_km], y: [pos[1] / scale_km],
+        mode: 'markers', type: 'scatter', name: `${b.label} (t=0)`,
+        marker: { size: 9, color: b.color, opacity: 0.32, symbol: 'circle-open', line: { width: 2, color: b.color } },
+        hovertemplate: `${b.label} em t=0<extra></extra>`, showlegend: true,
+      });
+    }
   }
 
-  // === SOL ===
-  traces.push({
-    x: [frCur.sun[0] / UA], y: [frCur.sun[1] / UA],
-    mode: 'markers', type: 'scatter', name: 'Sol',
-    marker: { size: 14, color: '#fbbf24', line: { color: '#f59e0b', width: 1 } },
-    hovertemplate: 'Sol<extra></extra>',
-  });
+  // === CORPO CENTRAL ===
+  const central = Bodies[centralId];
+  if (central) {
+    // No frame helio, central body fica na origem; em geo/sinódico, frCur.sun é o sol deslocado
+    const centralPos = (centralId === 'sol') ? frCur.sun : [0, 0, 0];
+    traces.push({
+      x: [centralPos[0] / scale_km], y: [centralPos[1] / scale_km],
+      mode: 'markers', type: 'scatter', name: central.label,
+      marker: { size: 14, color: central.color, line: { color: '#f59e0b', width: 1 } },
+      hovertemplate: `${central.label}<extra></extra>`,
+    });
+  }
 
   // === PLANETAS NA POSIÇÃO ATUAL ===
-  const drawPlanet = (pos, name, color) => ({
-    x: [pos[0] / UA], y: [pos[1] / UA],
-    mode: 'markers+text', type: 'scatter', name,
-    text: [name], textposition: 'top center',
+  const drawBody = (pos, label, color) => ({
+    x: [pos[0] / scale_km], y: [pos[1] / scale_km],
+    mode: 'markers+text', type: 'scatter', name: label,
+    text: [label], textposition: 'top center',
     textfont: { size: 11 },
     marker: { size: 11, color },
-    hovertemplate: `${name}<extra></extra>`,
+    hovertemplate: `${label}<extra></extra>`,
   });
-  traces.push(drawPlanet(frCur.earth, 'Terra', '#3da9fc'));
-  traces.push(drawPlanet(frCur.venus, 'Vênus', '#f7c948'));
-  traces.push(drawPlanet(frCur.mars, 'Marte', '#ef4444'));
+  for (const pid of planetIds) {
+    const b = Bodies[pid];
+    // frCur usa chaves 'earth'/'venus'/'mars'/'sun' (legado), mapeamento:
+    const frKey = pid === 'terra' ? 'earth' : pid === 'venus' ? 'venus' : pid === 'marte' ? 'mars' : pid;
+    const pos = frCur[frKey] || frCur[pid];
+    if (!b || !pos) continue;
+    traces.push(drawBody(pos, b.label, b.color));
+  }
 
   // === TRAIL DA NAVE ===
   if (t > 0) {
     const trailPts = Animation.trail(sim, t, frame, 100);
     if (trailPts.length > 1) {
       traces.push({
-        x: trailPts.map((p) => p[0] / UA),
-        y: trailPts.map((p) => p[1] / UA),
+        x: trailPts.map((p) => p[0] / scale_km),
+        y: trailPts.map((p) => p[1] / scale_km),
         mode: 'lines', type: 'scatter', name: 'Trajetória',
         line: { color: '#22d3ee', width: 2.5 },
         hoverinfo: 'name', showlegend: true,
@@ -107,7 +131,7 @@ function buildTrajectoryTraces(sim, opts) {
   // === NAVE (ponto atual) ===
   if (frCur.craft) {
     traces.push({
-      x: [frCur.craft[0] / UA], y: [frCur.craft[1] / UA],
+      x: [frCur.craft[0] / scale_km], y: [frCur.craft[1] / scale_km],
       mode: 'markers', type: 'scatter', name: 'Nave',
       marker: {
         size: 12, color: '#a78bfa', symbol: 'diamond',
@@ -120,15 +144,21 @@ function buildTrajectoryTraces(sim, opts) {
   return traces;
 }
 
-// Computa o range correto pro frame e config (auto-zoom)
+// Computa o range correto pro frame e missão (auto-zoom)
 function computeLim(sim, frame) {
-  if (frame === 'helio') return 1.7;
-  if (frame === 'geo') {
-    // Mostra até Marte máximo a partir da Terra: ~2.5 UA
-    return 2.7;
+  const mission = sim.mission;
+  const isKkm = mission && mission.plotUnit === 'kkm';
+  if (isKkm) return 500;
+  const visible = (mission && mission.visibleBodies) || ['terra', 'venus', 'marte'];
+  let maxR_AU = 0;
+  for (const pid of visible) {
+    const b = Bodies[pid];
+    if (b && b.orbital_radius) maxR_AU = Math.max(maxR_AU, b.orbital_radius / UA);
   }
-  if (frame === 'synodic') return 1.9;
-  return 1.7;
+  const lim = maxR_AU > 0 ? maxR_AU * 1.15 : 1.7;
+  if (frame === 'geo') return lim * 1.6;
+  if (frame === 'synodic') return lim * 1.1;
+  return lim;
 }
 
 function plotTrajectory(divId, sim, opts = {}) {
@@ -137,11 +167,14 @@ function plotTrajectory(divId, sim, opts = {}) {
   const isNarrow = window.innerWidth < 820;
   const traces = buildTrajectoryTraces(sim, { t, frame, showShadow: !!opts.showShadow });
   const lim = computeLim(sim, frame);
+  const isKkm = sim.mission && sim.mission.plotUnit === 'kkm';
+  const unit = isKkm ? 'mil km' : 'UA';
 
+  const centralLabel = sim.mission ? Bodies[sim.mission.centralBody].label : 'Sol';
   const titleMap = {
-    helio: 'Heliocêntrico inercial',
-    geo: 'Geocêntrico (Terra fixa)',
-    synodic: 'Sinódico Terra-Sol (rotativo)',
+    helio: `${centralLabel}-cêntrico inercial`,
+    geo: `Geocêntrico (Terra fixa)`,
+    synodic: `Sinódico Terra-${centralLabel} (rotativo)`,
   };
 
   const layout = {
@@ -149,12 +182,12 @@ function plotTrajectory(divId, sim, opts = {}) {
     plot_bgcolor: '#070912',
     font: { color: '#e8eefb', size: 11 },
     xaxis: {
-      title: 'x [UA]', range: [-lim, lim],
+      title: { text: `x [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
       scaleanchor: 'y', scaleratio: 1,
     },
     yaxis: {
-      title: 'y [UA]', range: [-lim, lim],
+      title: { text: `y [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
     },
     margin: isNarrow ? { t: 30, l: 40, r: 12, b: 70 } : { t: 30, l: 50, r: 12, b: 40 },
@@ -244,7 +277,10 @@ function plotPorkchop(divId, opts) {
       const xv = baseX.slice();
       xv[e.xIdx] = toModel(xVals[i], e.xKind);
       xv[e.yIdx] = toModel(yVals[j], e.yKind);
-      const c = cost(xv, { venusSwingBy: e.venusSwingBy });
+      // Aceita exploration.missionId (nova) ou fallback pra venusSwingBy (legado)
+      const c = e.missionId
+        ? cost(e.missionId, xv)
+        : cost(xv, { venusSwingBy: e.venusSwingBy });
       row.push(isFinite(c) ? Math.min(c, 30) : 30);
     }
     z.push(row);
