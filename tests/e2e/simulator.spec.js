@@ -253,6 +253,47 @@ test('31 - porkchop swing-by gera plot com range custom', async ({ page }) => {
   await shoot(page, '31-porkchop-swingby-times');
 });
 
+test('33 - porkchop plot mostra labels nos eixos X e Y', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.selectOption('#porkchopExploration', 'direct-phase-time');
+  await page.waitForTimeout(150);
+  await page.fill('#porkchopN', '20');
+  await page.click('#btnPorkchop');
+  await page.waitForFunction(
+    () => document.getElementById('porkchop')?.querySelector('svg') !== null,
+    { timeout: 90_000 }
+  );
+  await page.waitForTimeout(500);
+
+  // Axis titles devem estar no DOM
+  const xTitle = await page.evaluate(() => {
+    const div = document.getElementById('porkchop');
+    return div._fullLayout?.xaxis?.title?.text;
+  });
+  const yTitle = await page.evaluate(() => {
+    const div = document.getElementById('porkchop');
+    return div._fullLayout?.yaxis?.title?.text;
+  });
+  expect(xTitle).toContain('Marte');
+  expect(yTitle).toContain('T-M');
+
+  await page.locator('#exploracao').scrollIntoViewIfNeeded();
+  await shoot(page, '33-porkchop-axis-labels');
+});
+
+test('34 - explicação aparece e muda por exploração', async ({ page }) => {
+  await page.selectOption('#porkchopExploration', 'direct-phase-time');
+  await page.waitForTimeout(150);
+  const t1 = await page.locator('#porkchopExplain').textContent();
+  expect(t1).toMatch(/Hohmann|259/i);
+
+  await page.selectOption('#porkchopExploration', 'sb-rp-venus');
+  await page.waitForTimeout(150);
+  const t2 = await page.locator('#porkchopExplain').textContent();
+  expect(t2).toMatch(/r_p|deflexão|sobrevoo/i);
+  expect(t1).not.toBe(t2);
+});
+
 test('32 - reset ranges volta aos defaults', async ({ page }) => {
   await page.selectOption('#porkchopExploration', 'sb-phases');
   await page.waitForTimeout(200);

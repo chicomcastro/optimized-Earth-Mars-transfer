@@ -574,6 +574,7 @@ const EXPLORATIONS = {
     xMin: 0, xMax: 360, yMin: 120, yMax: 360,
     xLabel: 'fase de Marte [°]', yLabel: 'tempo de voo T-M [d]',
     fixedLabels: [],
+    explain: 'Janela de Hohmann clássica. O vale escuro perto de fase Marte ≈ 180° e t ≈ 259 d corresponde à transferência de Hohmann (5.71 km/s). Configurações com fase > 180° viram "long-way" e o Lambert (m=0, short-way) penaliza muito.',
   },
   'sb-phases': {
     label: 'Swing-by · fase Marte × fase Vênus',
@@ -583,6 +584,7 @@ const EXPLORATIONS = {
     xMin: 0, xMax: 360, yMin: 0, yMax: 360,
     xLabel: 'fase de Marte [°]', yLabel: 'fase de Vênus [°]',
     fixedLabels: ['T-V (dias)', 'V-M (dias)', 'r_p / R_SOI Vênus'],
+    explain: 'Geometria de alinhamento dos 3 planetas: pra cada par (fase Marte, fase Vênus) a missão é avaliada com os tempos e r_p fixos. Vales correspondem a posições astronomicamente favoráveis no momento certo.',
   },
   'sb-times': {
     label: 'Swing-by · T-V × V-M',
@@ -592,6 +594,7 @@ const EXPLORATIONS = {
     xMin: 30, xMax: 180, yMin: 30, yMax: 240,
     xLabel: 'T-V [dias]', yLabel: 'V-M [dias]',
     fixedLabels: ['fase de Marte', 'fase de Vênus', 'r_p / R_SOI Vênus'],
+    explain: 'Distribuição do tempo entre as duas pernas (Terra→Vênus e Vênus→Marte) com os planetas fixos. Mostra a sensibilidade do custo à divisão temporal — o mínimo dita a "energia" de cada perna.',
   },
   'sb-venus-time': {
     label: 'Swing-by · fase Vênus × T-V',
@@ -601,6 +604,7 @@ const EXPLORATIONS = {
     xMin: 0, xMax: 360, yMin: 30, yMax: 180,
     xLabel: 'fase de Vênus [°]', yLabel: 'T-V [d]',
     fixedLabels: ['fase de Marte', 'V-M (dias)', 'r_p / R_SOI Vênus'],
+    explain: 'Janela de partida Terra→Vênus: pra cada posição de Vênus, quanto tempo de voo é ótimo? A linha de mínimo é uma "Hohmann a Vênus" deformada.',
   },
   'sb-rp-venus': {
     label: 'Swing-by · r_p × fase Vênus',
@@ -610,6 +614,7 @@ const EXPLORATIONS = {
     xMin: 0.015, xMax: 0.1, yMin: 0, yMax: 360,
     xLabel: 'r_p / R_SOI Vênus', yLabel: 'fase de Vênus [°]',
     fixedLabels: ['fase de Marte', 'T-V (dias)', 'V-M (dias)'],
+    explain: 'Profundidade do sobrevoo (r_p) vs posição de Vênus. Quanto menor r_p, mais perto a nave passa de Vênus e maior a deflexão — mas há um trade-off com a posição certa pra essa deflexão "apontar" pra Marte.',
   },
 };
 
@@ -630,6 +635,10 @@ function renderExplorationControls() {
   // Atualiza select
   const sel = $("porkchopExploration");
   if (sel.value !== currentExploration) sel.value = currentExploration;
+
+  // Explicação
+  const exp = $("porkchopExplain");
+  if (exp) exp.textContent = e.explain || '';
 
   // Inputs X / Y
   $("porkchopXLabel").textContent = e.xLabel;

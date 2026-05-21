@@ -695,6 +695,14 @@ input[type="range"]::-moz-range-thumb {
   border-color: rgba(34, 211, 238, 0.4);
 }
 
+.porkchop-explain {
+  font-size: 0.82rem; color: var(--text-soft);
+  background: rgba(34, 211, 238, 0.05);
+  border-left: 2px solid var(--accent);
+  padding: 0.55rem 0.8rem; border-radius: 0 8px 8px 0;
+  margin: 0 0 0.7rem; line-height: 1.5;
+}
+
 .porkchop-ranges {
   display: grid; gap: 0.55rem 0.7rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
