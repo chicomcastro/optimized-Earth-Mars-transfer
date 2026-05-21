@@ -666,29 +666,111 @@ input[type="range"]::-moz-range-thumb {
 .psr-note b { color: var(--text); }
 
 /* ============================================================
-   Seletor de missão
+   Galeria de missões
+   ============================================================ */
+.gallery-filters {
+  display: flex; gap: 0.45rem; flex-wrap: wrap;
+  margin: 0.5rem 0 1.2rem;
+}
+.filter-chip {
+  position: relative;
+}
+.filter-chip.active {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+.filter-chip:not(.active) {
+  background: var(--bg-elev);
+}
+
+.gallery-grid {
+  display: grid; gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.mission-card {
+  position: relative;
+  background: var(--panel);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  cursor: pointer; user-select: none;
+  transition: all var(--t-fast) var(--ease);
+  display: flex; flex-direction: column;
+  min-height: 220px;
+}
+.mission-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(34, 211, 238, 0.15);
+}
+.mission-card.active {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(34,211,238,0.06), var(--panel));
+}
+.mc-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 700; color: var(--text-soft);
+  background: var(--bg-elev);
+  padding: 0.25rem 0.65rem; border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  align-self: flex-start;
+}
+.mc-dest-dot {
+  width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+}
+.mc-title {
+  font-size: 1.05rem; font-weight: 700; margin: 0.55rem 0 0.1rem;
+  letter-spacing: -0.2px;
+}
+.mc-subtitle {
+  color: var(--text-soft); font-size: 0.82rem; margin-bottom: 0.4rem;
+}
+.mc-cost {
+  display: flex; align-items: baseline; gap: 0.3rem;
+  margin: 0.3rem 0 0.5rem;
+}
+.mc-cost-value {
+  font-size: 1.4rem; font-weight: 700; color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+.mc-cost-unit { color: var(--muted); font-size: 0.78rem; }
+.mc-desc {
+  color: var(--text-soft); font-size: 0.82rem; line-height: 1.4;
+  flex: 1; margin-bottom: 0.7rem;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mc-cta {
+  align-self: flex-start;
+  font-size: 0.78rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.3rem 0.7rem; border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+.mission-card.active .mc-cta {
+  background: var(--accent); color: var(--bg);
+}
+
+/* ============================================================
+   Header da missão atual
    ============================================================ */
 .mission-picker {
   display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
   margin-bottom: 0.6rem;
 }
-.mp-label {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  color: var(--text-soft); font-size: 0.88rem;
-  flex: 1; min-width: 240px;
+.mp-title {
+  font-size: 1.1rem; font-weight: 700; margin: 0; flex: 1; min-width: 0;
 }
-#missionSelect {
-  appearance: none;
-  background: var(--bg-elev); color: var(--text);
-  border: 1px solid var(--border-soft); border-radius: 10px;
-  padding: 0.55rem 2rem 0.55rem 0.85rem;
-  font: inherit; font-size: 0.92rem; font-weight: 500;
-  cursor: pointer; outline: none;
-  flex: 1; min-width: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%2322d3ee' d='M6 8L0 0h12z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 0.7rem center;
-  background-size: 10px;
+.mp-back {
+  font-size: 0.82rem; color: var(--text-soft);
+  padding: 0.35rem 0.7rem; border-radius: 999px;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+}
+.mp-back:hover {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(34,211,238,0.4); text-decoration: none;
 }
 .mp-badge {
   display: inline-block; padding: 0.25rem 0.65rem;

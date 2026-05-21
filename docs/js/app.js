@@ -550,36 +550,122 @@ function stopPSO() {
 // Mode change
 // ============================================================
 
-function bindMissionSelect() {
-  $("missionSelect").addEventListener("change", (e) => {
-    setMission(e.target.value);
-  });
-}
-
 function setMission(missionId, opts = {}) {
   if (!Missions[missionId]) return;
   currentMissionId = missionId;
   const m = currentMission();
 
-  // Atualiza UI da seção da missão
-  $("missionSelect").value = missionId;
+  $("missionTitle").textContent = m.label;
   $("missionBadge").textContent = m.badge || '';
   $("missionDescription").textContent = m.description || '';
 
-  // Aplica primeiro preset por default
   const preset = m.presets[0];
   renderInputs(preset ? preset.x.slice() : m.params.map((p) => p.bounds[0]));
   renderPresetButtons();
   refreshScenario({ pulse: true });
 
-  // Atualiza picker do porkchop (regenera explorações da nova missão)
   if (typeof renderExplorationControls === 'function') {
-    // Reseta pra primeira exploração da missão
     currentExplorationIdx = 0;
     renderExplorationControls();
   }
 
+  // Atualiza card ativo na galeria
+  renderGallery();
+
   if (opts.toast) showToast(`Missão: ${m.label}`);
+}
+
+// ============================================================
+// Galeria de missões
+// ============================================================
+
+let currentDestFilter = 'all';
+
+function renderGallery() {
+  // Renderiza chips de filtro (uma vez)
+  const filterBox = $("galleryFilters");
+  if (filterBox && filterBox.querySelectorAll('.filter-chip').length <= 1) {
+    const html = ['<button class="chip filter-chip" data-dest="all">Todos</button>'];
+    for (const d of Destinations) {
+      html.push(`<button class="chip filter-chip" data-dest="${d.id}" style="--dest-color:${d.color};">${d.label}</button>`);
+    }
+    filterBox.innerHTML = html.join('');
+    $$('.filter-chip').forEach((b) => {
+      b.addEventListener('click', () => {
+        currentDestFilter = b.dataset.dest;
+        renderGallery();
+      });
+    });
+  }
+
+  // Atualiza estado ativo dos chips
+  $$('.filter-chip').forEach((b) =>
+    b.classList.toggle('active', b.dataset.dest === currentDestFilter)
+  );
+
+  // Renderiza cards
+  const grid = $("galleryGrid");
+  if (!grid) return;
+  const missions = MissionOrder
+    .map((id) => Missions[id])
+    .filter((m) => m && (currentDestFilter === 'all' || m.destination === currentDestFilter));
+
+  const cards = missions.map((m) => {
+    const dest = Destinations.find((d) => d.id === m.destination);
+    const destColor = dest ? dest.color : '#888';
+    const destLabel = dest ? dest.label : m.destination;
+    const flybyTxt = m.flybyAt ? ` · via ${Bodies[m.flybyAt].label}` : '';
+    const active = m.id === currentMissionId ? 'active' : '';
+    return `
+      <div class="mission-card ${active}" data-mission="${m.id}">
+        <div class="mc-badge" style="--dest-color:${destColor}">
+          <span class="mc-dest-dot" style="background:${destColor}"></span>
+          ${destLabel}
+        </div>
+        <div class="mc-title">Terra → ${destLabel}</div>
+        <div class="mc-subtitle">de ${m.departureLabel}${flybyTxt}</div>
+        <div class="mc-cost">
+          <span class="mc-cost-value">${m.estimatedCost.toFixed(2)}</span>
+          <span class="mc-cost-unit">km/s</span>
+        </div>
+        <div class="mc-desc">${m.description}</div>
+        <div class="mc-cta">${active ? '✓ ativa' : 'Explorar →'}</div>
+      </div>
+    `;
+  }).join('');
+
+  grid.innerHTML = cards || '<p class="muted">Nenhuma missão para esse filtro.</p>';
+
+  $$('.mission-card', grid).forEach((card) => {
+    card.addEventListener('click', () => {
+      const mid = card.dataset.mission;
+      // Atualiza hash → router faz o setMission e scroll
+      window.location.hash = `#/mission/${mid}`;
+    });
+  });
+}
+
+// ============================================================
+// Hash routing: #/mission/{id} → carrega missão + scroll pro simulador
+// ============================================================
+
+function handleHashRoute() {
+  const hash = window.location.hash;
+  const m = hash.match(/^#\/mission\/([\w-]+)/);
+  if (m) {
+    const missionId = m[1];
+    if (Missions[missionId] && missionId !== currentMissionId) {
+      setMission(missionId);
+    }
+    // Scroll suave pro simulador (não bloqueia se hash mudou pra galeria depois)
+    setTimeout(() => {
+      const target = $("simulador");
+      if (target) {
+        const top = target.getBoundingClientRect().top + window.scrollY - 10;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
+    }, 50);
+  }
 }
 
 // ============================================================
@@ -852,14 +938,29 @@ function bindReveal() {
 function bindEvents() {
   $("btnRun").addEventListener("click", runPSO);
   $("btnStop").addEventListener("click", stopPSO);
-  bindMissionSelect();
   bindPorkchop();
   bindNav();
   bindReveal();
   bindAnim();
+  window.addEventListener('hashchange', handleHashRoute);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
-  setMission('mars-direct-leo');
+  // Verifica se a URL pede uma missão específica
+  const initialHash = window.location.hash;
+  const m = initialHash.match(/^#\/mission\/([\w-]+)/);
+  const initialMission = (m && Missions[m[1]]) ? m[1] : 'mars-direct-leo';
+  setMission(initialMission);
+  renderGallery();
+  if (m) {
+    // Se URL pediu missão específica, scroll pro simulador no load
+    setTimeout(() => {
+      const target = $("simulador");
+      if (target) {
+        const top = target.getBoundingClientRect().top + window.scrollY - 10;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
+    }, 200);
+  }
 });
