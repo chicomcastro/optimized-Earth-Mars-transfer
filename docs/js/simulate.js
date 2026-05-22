@@ -202,20 +202,35 @@ function _simulateMission(m, x) {
       legStarts_s.push(legStarts_s[i] + legDurations_s[i]);
     }
 
-    // Fases iniciais (t=0) de cada corpo visível
+    // Fases iniciais (t=0) de cada corpo visível.
+    // Convenção: phases[bodyId] é a posição do corpo no MOMENTO em que a
+    // nave o encontra. Para o corpo de PARTIDA, isso é t=0. Para o destino,
+    // é t_total_s. Para flybys, é o fim da leg correspondente.
     const phasesInitial = {};
+    const departureBodyId = m.departure.body;
+    const arrivalBodyId = m.arrival.body;
+    const flybyBodyIds = new Set(
+      m.legs.filter((l) => l.kind === 'flyby').map((l) => l.at)
+    );
     for (const bodyId of m.visibleBodies) {
       if (bodyId === m.centralBody) { phasesInitial[bodyId] = 0; continue; }
-      const phaseAtArrival = phases[bodyId] ?? 0;
-      // O "tempo de chegada" do corpo depende de quando ele aparece na missão.
-      // Aproximação: usamos t_total_s (tempo até o fim). Vale exatamente pro
-      // corpo de destino. Para corpos intermediários (flyby), tempo é diferente —
-      // a aproximação não afeta o cálculo do custo, só a vis dos shadows.
+      const phaseRef = phases[bodyId] ?? 0;
       const b = Bodies[bodyId];
-      phasesInitial[bodyId] = phaseAtArrival - b.omega * t_total_s;
+      if (bodyId === departureBodyId) {
+        // Já está na posição de partida (t=0)
+        phasesInitial[bodyId] = phaseRef;
+      } else if (flybyBodyIds.has(bodyId)) {
+        // Será sobrescrito no segundo passo (com tempo correto da leg)
+        phasesInitial[bodyId] = phaseRef - b.omega * t_total_s;
+      } else if (bodyId === arrivalBodyId) {
+        phasesInitial[bodyId] = phaseRef - b.omega * t_total_s;
+      } else {
+        // Corpo visível mas não envolvido na trajetória: assume t_total
+        phasesInitial[bodyId] = phaseRef - b.omega * t_total_s;
+      }
     }
 
-    // Para flyby bodies: usa o tempo de cada leg
+    // Sobrescreve flyby bodies com tempo correto (fim da leg correspondente)
     let elapsed_s = 0;
     for (const leg of m.legs) {
       if (leg.kind === 'lambert') {
@@ -308,10 +323,14 @@ function _inf(m, x) {
 
   const phasesInitial = {};
   const positionsInitial = {};
+  const departureBodyId = m.departure.body;
   for (const bodyId of m.visibleBodies) {
     if (bodyId === m.centralBody) { phasesInitial[bodyId] = 0; positionsInitial[bodyId] = [0,0,0]; continue; }
     const b = Bodies[bodyId];
-    phasesInitial[bodyId] = (phases[bodyId] ?? 0) - b.omega * t_total_s;
+    // Departure body parte em t=0 — não corrige no tempo.
+    phasesInitial[bodyId] = bodyId === departureBodyId
+      ? (phases[bodyId] ?? 0)
+      : (phases[bodyId] ?? 0) - b.omega * t_total_s;
     positionsInitial[bodyId] = positionOf(bodyId, phasesInitial[bodyId]);
   }
 

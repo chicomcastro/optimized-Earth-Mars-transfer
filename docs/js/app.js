@@ -657,14 +657,17 @@ function handleHashRoute() {
     if (Missions[missionId] && missionId !== currentMissionId) {
       setMission(missionId);
     }
-    // Scroll suave pro simulador (não bloqueia se hash mudou pra galeria depois)
-    setTimeout(() => {
-      const target = $("simulador");
-      if (target) {
-        const top = target.getBoundingClientRect().top + window.scrollY - 10;
-        window.scrollTo({ top, behavior: "smooth" });
-      }
-    }, 50);
+    if (isMobileTabs()) {
+      setActiveTab('simulador');
+    } else {
+      setTimeout(() => {
+        const target = $("simulador");
+        if (target) {
+          const top = target.getBoundingClientRect().top + window.scrollY - 10;
+          window.scrollTo({ top, behavior: "smooth" });
+        }
+      }, 50);
+    }
   }
 }
 
@@ -878,37 +881,82 @@ function showToast(text) {
 // Navegação: smooth scroll + scroll-spy
 // ============================================================
 
+// Estado da tab ativa (usado em mobile pra mostrar só uma section por vez).
+// No desktop, a CSS ignora `.tab-active` e mostra tudo (scroll normal).
+let currentTab = 'galeria';
+
+function isMobileTabs() {
+  return window.matchMedia('(max-width: 820px)').matches;
+}
+
+function setActiveTab(id) {
+  if (!id) return;
+  currentTab = id;
+  // Marca section
+  $$("main > section").forEach((s) =>
+    s.classList.toggle('tab-active', s.id === id)
+  );
+  // Marca nav links
+  $$('nav.tabs a, nav.bottom-nav a').forEach((a) =>
+    a.classList.toggle('active', a.dataset.target === id)
+  );
+  // No mobile, sobe pro topo da viewport quando troca de tab
+  if (isMobileTabs()) {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+}
+
 function bindNav() {
   const allNavLinks = $$('nav.tabs a, nav.bottom-nav a');
   allNavLinks.forEach((a) => {
     a.addEventListener("click", (e) => {
       e.preventDefault();
       const target = a.dataset.target;
-      const el = document.getElementById(target);
-      if (!el) return;
-      const top = el.getBoundingClientRect().top + window.scrollY - 10;
-      window.scrollTo({ top, behavior: "smooth" });
+      if (!target) return;
+      if (isMobileTabs()) {
+        setActiveTab(target);
+      } else {
+        const el = document.getElementById(target);
+        if (!el) return;
+        const top = el.getBoundingClientRect().top + window.scrollY - 10;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
     });
   });
 
-  // Scroll-spy via IntersectionObserver
-  const sections = $$("main section");
-  const setActive = (id) => {
-    allNavLinks.forEach((a) =>
-      a.classList.toggle("active", a.dataset.target === id)
+  // Marca todas as sections como tab-active inicialmente — display:none aplica só em mobile (via CSS)
+  // mas precisa de UMA marcada como tab-active senão mobile fica vazio.
+  setActiveTab(currentTab);
+
+  // Scroll-spy desktop: usa IntersectionObserver
+  const sections = $$("main > section");
+  const setSpyActive = (id) => {
+    if (isMobileTabs()) return; // mobile usa tabs, não scroll-spy
+    $$('nav.tabs a, nav.bottom-nav a').forEach((a) =>
+      a.classList.toggle('active', a.dataset.target === id)
     );
   };
   const observer = new IntersectionObserver(
     (entries) => {
-      // Pega a section mais próxima do topo que está visível
       const visible = entries
         .filter((e) => e.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible.length > 0) setActive(visible[0].target.id);
+      if (visible.length > 0) setSpyActive(visible[0].target.id);
     },
     { rootMargin: "-30% 0px -55% 0px", threshold: 0 }
   );
   sections.forEach((s) => observer.observe(s));
+
+  // Reage a resize entre mobile/desktop
+  window.addEventListener('resize', () => {
+    if (!isMobileTabs()) {
+      // Em desktop, garantir que todas as sections estão visíveis
+      $$("main > section").forEach((s) => s.classList.add('tab-active'));
+    } else {
+      // Em mobile, deixa só a current
+      setActiveTab(currentTab);
+    }
+  });
 }
 
 // ============================================================
@@ -947,14 +995,15 @@ function bindEvents() {
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
-  // Verifica se a URL pede uma missão específica
   const initialHash = window.location.hash;
   const m = initialHash.match(/^#\/mission\/([\w-]+)/);
   const initialMission = (m && Missions[m[1]]) ? m[1] : 'mars-direct-leo';
   setMission(initialMission);
   renderGallery();
-  if (m) {
-    // Se URL pediu missão específica, scroll pro simulador no load
+  // Mobile: começa na galeria; se URL pediu missão, vai pro simulador
+  if (isMobileTabs()) {
+    setActiveTab(m ? 'simulador' : 'galeria');
+  } else if (m) {
     setTimeout(() => {
       const target = $("simulador");
       if (target) {
