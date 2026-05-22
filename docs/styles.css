@@ -133,33 +133,33 @@ nav.bottom-nav {
   nav.bottom-nav {
     display: flex;
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-    background: rgba(7, 9, 18, 0.86);
+    background: rgba(7, 9, 18, 0.92);
     backdrop-filter: saturate(160%) blur(18px);
     -webkit-backdrop-filter: saturate(160%) blur(18px);
     border-top: 1px solid var(--border-soft);
-    padding: 0.45rem 0.4rem calc(0.45rem + var(--bottom-safe));
+    /* Compacto, app-native */
+    padding: 0.25rem 0.3rem calc(0.25rem + var(--bottom-safe));
     justify-content: space-around;
     align-items: stretch;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
   }
   nav.bottom-nav a {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 0.65rem; gap: 0.18rem;
-    padding: 0.4rem 0.2rem; border-radius: 10px;
+    color: var(--muted); font-size: 0.62rem; gap: 0.1rem;
+    padding: 0.3rem 0.15rem; border-radius: 8px;
     transition: all var(--t-fast) var(--ease);
-    min-height: var(--tap);
+    min-height: 0; /* tira o 44px do tap-target, fica compacto */
     text-decoration: none;
+    line-height: 1;
   }
   nav.bottom-nav a .icon {
-    width: 22px; height: 22px; display: grid; place-items: center;
+    width: 20px; height: 20px; display: grid; place-items: center;
     transition: transform var(--t-med) var(--ease);
   }
-  nav.bottom-nav a .icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; }
-  nav.bottom-nav a.active {
-    color: var(--accent);
-  }
-  nav.bottom-nav a.active .icon { transform: translateY(-2px) scale(1.1); }
-  nav.bottom-nav a:active { transform: scale(0.95); }
+  nav.bottom-nav a .icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; }
+  nav.bottom-nav a.active { color: var(--accent); }
+  nav.bottom-nav a.active .icon { transform: translateY(-1px) scale(1.08); }
+  nav.bottom-nav a:active { transform: scale(0.94); }
 }
 
 /* ============================================================
@@ -498,8 +498,14 @@ input[type="range"]::-moz-range-thumb {
 /* ============================================================
    PLOTS
    ============================================================ */
-.plot { height: clamp(360px, 60vh, 560px); width: 100%; }
-.plot-small { height: clamp(220px, 30vh, 340px); }
+.plot { height: clamp(360px, 60vh, 560px); width: 100%; min-width: 0; overflow: hidden; }
+.plot-small { height: clamp(220px, 30vh, 340px); min-width: 0; overflow: hidden; }
+/* Força o SVG do Plotly a respeitar a largura do container */
+.plot .js-plotly-plot, .plot-small .js-plotly-plot,
+.plot .plot-container, .plot-small .plot-container {
+  width: 100% !important;
+  max-width: 100% !important;
+}
 
 /* Toolbar de referencial e shadow */
 .anim-toolbar {
@@ -997,7 +1003,7 @@ footer {
   main > section:not(.tab-active) { display: none !important; }
   main > section.tab-active {
     border-bottom: none;
-    padding-top: 1rem;
+    padding-top: 0.6rem;
     /* Anima entrada de cada tab */
     animation: tab-fade-in 240ms var(--ease);
   }
@@ -1005,11 +1011,18 @@ footer {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  /* Hero compacta no modo tabs */
-  header.hero { padding: 0.9rem 1rem 0.5rem; }
-  .hero h1 { font-size: 1.4rem; margin-bottom: 0.3rem; line-height: 1.1; }
-  .hero p.lead { font-size: 0.82rem; margin: 0; }
-  .hero .meta { font-size: 0.7rem; margin-top: 0.4rem; }
+  /* Hero sticky e bem compacta — só o título da app */
+  header.hero {
+    position: sticky; top: 0; z-index: 20;
+    padding: calc(0.4rem + var(--top-safe)) 1rem 0.4rem;
+    background: rgba(7, 9, 18, 0.92);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .hero h1 { font-size: 1rem; margin: 0; line-height: 1.2; font-weight: 600; }
+  .hero p.lead { display: none; } /* só no desktop */
+  .hero .meta { display: none; }
   /* Galeria compacta */
   .gallery-grid { gap: 0.7rem; grid-template-columns: 1fr 1fr; }
   .mission-card {

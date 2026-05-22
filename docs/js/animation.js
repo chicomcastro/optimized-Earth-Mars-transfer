@@ -103,16 +103,20 @@ const Animation = (() => {
           0,
         ];
       }
+      const r_dep = (sim.mission && sim.positions[sim.mission.departure.body]) || sim.r_terra_sol;
+      const r_arr = (sim.mission && sim.positions[sim.mission.arrival.body]) || sim.r_marte_sol;
       return [
-        sim.r_terra_sol[0] * (1 - f) + sim.r_marte_sol[0] * f,
-        sim.r_terra_sol[1] * (1 - f) + sim.r_marte_sol[1] * f,
+        r_dep[0] * (1 - f) + r_arr[0] * f,
+        r_dep[1] * (1 - f) + r_arr[1] * f,
         0,
       ];
     }
 
     if (t >= sim.t_total_s) {
-      // No fim, garante Marte (posição final, sem propagar pra evitar drift Kepleriano)
-      return sim.r_marte_sol.slice();
+      // No fim, garante a posição do corpo de destino (sem propagar pra evitar drift)
+      const arrPos = (sim.mission && sim.positions && sim.positions[sim.mission.arrival.body])
+        || sim.r_marte_sol;
+      return arrPos.slice();
     }
 
     // Acha em qual leg estamos
@@ -124,7 +128,11 @@ const Animation = (() => {
       }
     }
     const leg = sim.trajetorias[legIdx];
-    if (!leg) return sim.r_marte_sol.slice();
+    if (!leg) {
+      const arrPos = (sim.mission && sim.positions && sim.positions[sim.mission.arrival.body])
+        || sim.r_marte_sol;
+      return arrPos.slice();
+    }
     const localT = t - sim.legStarts_s[legIdx];
     const pos = propagate(leg.r0, leg.v0, leg.mi, localT);
     // Sanity check: se propagate deu NaN, fallback

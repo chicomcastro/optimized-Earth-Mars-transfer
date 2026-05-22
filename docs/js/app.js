@@ -904,6 +904,19 @@ function setActiveTab(id) {
   if (isMobileTabs()) {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  // Plotly precisa redimensionar quando o container muda de display:none → visible
+  // (mede a width na inicialização — se zero, fica gigante depois)
+  if (typeof Plotly !== 'undefined') {
+    requestAnimationFrame(() => {
+      const plotIds = ['plot', 'porkchop', 'convergence'];
+      for (const pid of plotIds) {
+        const el = document.getElementById(pid);
+        if (el && el.offsetWidth > 0 && el._fullLayout) {
+          try { Plotly.Plots.resize(el); } catch (e) {}
+        }
+      }
+    });
+  }
 }
 
 function bindNav() {
