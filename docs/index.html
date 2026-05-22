@@ -229,41 +229,62 @@
 <section id="problema" class="reveal">
   <h2>Problema</h2>
   <p>
-    Minimizar o ΔV total de uma transferência Terra → Marte. Comparamos
-    duas estratégias:
+    O simulador resolve <strong>otimização de transferências interplanetárias impulsivas</strong>
+    entre dois corpos do sistema solar. Cada missão da galeria é uma instância
+    do mesmo problema com bodies, órbitas e estratégia diferentes.
   </p>
+
+  <h3>Tipos de missão</h3>
   <div class="grid">
     <div class="card">
-      <h3>Direta</h3>
+      <h3>Direta (single-leg)</h3>
       <ul>
-        <li>Saída de uma órbita baixa da Terra (h = 200 km)</li>
-        <li>Uma transferência heliocêntrica</li>
-        <li>Captura em órbita ao redor de Marte (h = 200 km)</li>
+        <li>Saída de órbita ao redor da Terra (LEO ou GEO)</li>
+        <li>Uma transferência heliocêntrica Lambert</li>
+        <li>Captura em órbita ao redor do destino</li>
       </ul>
+      <p>Marte direto, Vênus direto, Mercúrio direto, Júpiter direto…</p>
       <figure>
         <img src="figures/modelo-transferencia-direta.png" alt="Diagrama transferência direta" />
       </figure>
     </div>
     <div class="card">
-      <h3>Swing-by por Vênus</h3>
+      <h3>Com swing-by (multi-leg)</h3>
       <ul>
-        <li>Transferência Terra → Vênus</li>
-        <li>Sobrevoo em Vênus (deflexão sem gasto)</li>
-        <li>Transferência Vênus → Marte</li>
-        <li>Captura em Marte</li>
+        <li>Lambert até um corpo intermediário</li>
+        <li>Sobrevoo (gravity assist) sem gasto de propelente</li>
+        <li>Lambert do corpo intermediário até o destino</li>
+        <li>Captura</li>
       </ul>
+      <p>Mercúrio via Vênus, Júpiter via Marte, Marte via Vênus…</p>
       <figure>
-        <img src="figures/diagrama-transferencia-swing-by.png" alt="Diagrama swing-by por Vênus" />
+        <img src="figures/diagrama-transferencia-swing-by.png" alt="Diagrama com swing-by" />
       </figure>
     </div>
   </div>
 
-  <h3>Hipóteses</h3>
+  <h3>Variantes por órbita de partida</h3>
+  <p>
+    Cada destino tem variantes <b>LEO</b> (h=200 km) e <b>GEO</b> (h=35786 km).
+    Para v<sub>∞</sub> baixo (Marte, Vênus, Lua) sair de GEO é mais barato; para
+    v<sub>∞</sub> alto (Mercúrio, Júpiter) o <strong>efeito Oberth</strong> faz LEO ganhar.
+  </p>
+
+  <h3>Caso especial: Lua (geocêntrico)</h3>
+  <p>
+    A missão Terra→Lua é a única que muda de paradigma: corpo central
+    passa a ser a Terra, a Lua orbita ao redor dela, distâncias em milhares
+    de km, tempos em dias. Mostra que a abstração de missão funciona fora
+    do paradigma heliocêntrico.
+  </p>
+
+  <h3>Hipóteses comuns a todas as missões</h3>
   <ul>
     <li>Órbitas planetárias circulares e coplanares (problema 2D)</li>
-    <li>Patched conics — dentro da SOI, só a gravidade local</li>
-    <li>Manobras impulsivas</li>
+    <li>Patched conics — dentro de cada SOI, só a gravidade local</li>
+    <li>Manobras impulsivas (queima instantânea)</li>
     <li>Swing-by tratado como deflexão simples no plano</li>
+    <li>Lambert apenas com m=0 (zero revoluções, automaticamente prógrado)</li>
   </ul>
 </section>
 
@@ -273,73 +294,70 @@
 
   <h3>Problema de Lambert</h3>
   <p>
-    Algoritmo de <strong>Izzo</strong> (Newton-Raphson rápido) com fallback
-    <strong>Lancaster-Blanchard</strong>+Gooding, do código de Rody Oldenhuis.
+    Dado um par <strong>(r₁, r₂)</strong> e um tempo de voo, calcula a órbita
+    Kepleriana que conecta os pontos. Algoritmo de <strong>Izzo</strong> (Newton-Raphson
+    rápido) com fallback <strong>Lancaster-Blanchard</strong>+Gooding, do código
+    de Rody Oldenhuis. O wrapper escolhe automaticamente o ramo prógrado.
   </p>
-  <div class="formula">[V₁, V₂] = Lambert(r₁, r₂, tf, m, μ)</div>
+  <div class="formula">[V₁, V₂] = Lambert(r₁, r₂, tf, m, μ_central)</div>
 
-  <h3>Saída da Terra</h3>
+  <h3>Saída da órbita de partida</h3>
+  <p>v<sub>∞</sub> é a velocidade "no infinito" relativa ao corpo de partida:</p>
   <div class="formula">
-    v<sub>∞</sub> = V₁ − v<sub>terra/sol</sub><br>
-    v<sub>partida</sub> = √(|v<sub>∞</sub>|² + 2μ<sub>⊕</sub>/R<sub>órbita</sub>)
+    v<sub>∞</sub> = V₁ − v<sub>partida/central</sub><br>
+    v<sub>burn</sub> = √(|v<sub>∞</sub>|² + 2μ<sub>partida</sub>/R<sub>órbita</sub>)<br>
+    ΔV<sub>partida</sub> = |v<sub>burn</sub> − v<sub>circ</sub>|
   </div>
 
-  <h3>Chegada em Marte</h3>
+  <h3>Chegada e captura no destino</h3>
+  <p>Mesmo princípio, agora no corpo de chegada:</p>
   <div class="formula">
-    ΔV<sub>captura</sub> = |v<sub>p</sub> − v<sub>circ,marte</sub>|
+    v<sub>∞,arr</sub> = V₂ − v<sub>destino/central</sub><br>
+    v<sub>p</sub> = √(|v<sub>∞,arr</sub>|² + 2μ<sub>destino</sub>/R<sub>órbita</sub>)<br>
+    ΔV<sub>captura</sub> = |v<sub>p</sub> − v<sub>circ,destino</sub>|
   </div>
 
-  <h3>Swing-by por Vênus</h3>
-  <div class="formula">sin(δ) = 1 / (1 + r<sub>p</sub>·|v|/μ<sub>♀</sub>)</div>
+  <h3>Swing-by (gravity assist)</h3>
+  <p>Deflexão hiperbólica em torno do corpo, sem gasto de propelente:</p>
+  <div class="formula">sin(δ) = 1 / (1 + r<sub>p</sub>·v<sub>circ,partida</sub>/μ<sub>flyby</sub>)</div>
+  <p>
+    A nave entra com v<sub>∞</sub> relativo ao corpo do flyby, sofre a deflexão δ
+    no plano, e sai com a mesma magnitude mas direção girada. No frame heliocêntrico,
+    isso muda a energia da órbita.
+  </p>
+
+  <h3>Função-custo total</h3>
+  <p>Soma de todos os ΔV impulsivos da missão:</p>
+  <div class="formula">
+    ΔV<sub>total</sub> = ΔV<sub>partida</sub> + Σ ΔV<sub>match-leg</sub> + ΔV<sub>captura</sub>
+  </div>
+  <p>
+    Onde <em>match-leg</em> é o custo de casar a velocidade pós-flyby com a
+    velocidade Lambert da próxima perna (zero se flyby for perfeitamente alinhado).
+  </p>
 
   <h3>PSO — Particle Swarm Optimization</h3>
   <div class="formula">v ← w·v + φ<sub>p</sub>·r<sub>p</sub>·(p<sub>best</sub> − x) + φ<sub>g</sub>·r<sub>g</sub>·(g<sub>best</sub> − x)</div>
-  <p>w = 0.9, φ<sub>p</sub> = 0.6, φ<sub>g</sub> = 0.8. Espaço multimodal, descontínuo nas bordas — daí PSO em vez de gradiente.</p>
-</section>
-
-<!-- RESULTADOS -->
-<section id="resultados" class="reveal">
-  <h2>Resultados</h2>
-  <table class="cmp">
-    <thead>
-      <tr>
-        <th>Cenário</th>
-        <th>ΔV [km/s]</th>
-        <th>Parâmetros ótimos</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Direta otimizada</td>
-        <td><b>~5,71</b></td>
-        <td>fase Marte ≈ 180° (oposição), t ≈ 259 d — Hohmann clássica</td>
-      </tr>
-      <tr>
-        <td>Swing-by por Vênus</td>
-        <td><b>~8,02</b></td>
-        <td>fase Vênus ≈ 180°, t<sub>TV</sub> ≈ 121 d, t<sub>VM</sub> ≈ 215 d</td>
-      </tr>
-    </tbody>
-  </table>
   <p>
-    Para esta missão (LEO → LMO, órbitas circulares), o swing-by por
-    Vênus <strong>não vence</strong> a direta. Em missões aos planetas
-    externos a história muda.
+    w = 0.9, φ<sub>p</sub> = 0.6, φ<sub>g</sub> = 0.8. Espaço de busca multimodal
+    (vários mínimos locais), descontínuo nas bordas onde o Lambert falha — daí
+    PSO em vez de gradiente. Para todas as missões, o PSO usa os bounds declarados
+    no registro da missão.
   </p>
 
   <h3>Figuras de referência</h3>
   <div class="figure-grid">
     <figure>
       <img src="figures/trajectory-direct.png" alt="Trajetória direta otimizada" />
-      <figcaption>Trajetória direta otimizada</figcaption>
+      <figcaption>Hohmann direta clássica</figcaption>
     </figure>
     <figure>
-      <img src="figures/trajectory-swing-by-corrected.png" alt="Trajetória com swing-by por Vênus" />
+      <img src="figures/trajectory-swing-by-corrected.png" alt="Trajetória com swing-by" />
       <figcaption>Trajetória com swing-by por Vênus</figcaption>
     </figure>
     <figure>
       <img src="figures/ilustracao-swing-by-deflexao.png" alt="Esquema da deflexão no swing-by" />
-      <figcaption>Geometria da deflexão no swing-by</figcaption>
+      <figcaption>Geometria da deflexão</figcaption>
     </figure>
   </div>
 </section>

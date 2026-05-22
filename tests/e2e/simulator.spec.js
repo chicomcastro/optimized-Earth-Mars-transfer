@@ -349,8 +349,8 @@ test('11 - viewport mobile - simulador', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitAppReady(page);
-  // Já abre no simulador (primeira seção)
-  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  // Em mobile, abre na galeria; clica no bottom-nav pra ir ao simulador
+  await page.click('nav.bottom-nav a[data-target="simulador"]');
   await page.waitForTimeout(400);
   await shoot(page, '11-mobile-simulador');
 });
@@ -367,7 +367,7 @@ test('13 - viewport ultra-estreito (320px)', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitAppReady(page);
-  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await page.click('nav.bottom-nav a[data-target="simulador"]');
   await page.waitForTimeout(400);
   await shoot(page, '13-mobile-320px');
 });
@@ -376,9 +376,8 @@ test('15 - mobile - trajetória renderiza com legend horizontal', async ({ page 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await waitAppReady(page);
-  await page.locator('#simulador').scrollIntoViewIfNeeded();
+  await page.click('nav.bottom-nav a[data-target="simulador"]');
   await page.waitForTimeout(500);
-  // Scroll para mostrar o plot completamente
   await page.evaluate(() => {
     document.querySelector('#plot').scrollIntoView({ block: 'center' });
   });
@@ -748,6 +747,52 @@ test('47 - earth-moon-geo: 2.1 km/s (barato)', async ({ page }) => {
   expect(dv).toBeGreaterThan(1.5);
   expect(dv).toBeLessThan(3);
   await shoot(page, '47-mission-moon-geo');
+});
+
+test('48 - mobile tabs: só uma seção visível por vez', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+  // No mobile, abre na galeria
+  const visibleSections = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('main > section'))
+      .filter((s) => getComputedStyle(s).display !== 'none')
+      .map((s) => s.id);
+  });
+  expect(visibleSections).toEqual(['galeria']);
+
+  // Troca pro simulador via bottom-nav
+  await page.click('nav.bottom-nav a[data-target="simulador"]');
+  await page.waitForTimeout(300);
+  const visibleAfter = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('main > section'))
+      .filter((s) => getComputedStyle(s).display !== 'none')
+      .map((s) => s.id);
+  });
+  expect(visibleAfter).toEqual(['simulador']);
+  await shoot(page, '48-mobile-tabs');
+});
+
+test('49 - mobile: Terra se move durante missão (bug shadows corrigido)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+  await page.click('nav.bottom-nav a[data-target="simulador"]');
+  await page.waitForTimeout(300);
+
+  // Verifica que Terra em t=0 (shadow) e Terra atual ESTÃO em posições diferentes
+  // após uma missão de 259 dias (Terra-Marte Hohmann)
+  const positions = await page.evaluate(() => {
+    return {
+      t0: Animation.stateAt(Anim.sim, 0),
+      tf: Animation.stateAt(Anim.sim, Anim.sim.t_total_s),
+    };
+  });
+  const earthT0 = positions.t0.terra;
+  const earthTf = positions.tf.terra;
+  const dist = Math.hypot(earthT0[0] - earthTf[0], earthT0[1] - earthTf[1]);
+  // Para Hohmann (259d), Terra se move ~255° na órbita — distância considerável
+  expect(dist).toBeGreaterThan(1e7); // > 10 milhões de km
 });
 
 test('40 - missão earth-moon: geocêntrico, tempos em dias', async ({ page }) => {
