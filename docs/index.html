@@ -33,8 +33,7 @@
     <li><a href="#simulador" data-target="simulador">Simulador</a></li>
     <li><a href="#exploracao" data-target="exploracao">Porkchop</a></li>
     <li><a href="#otimizacao" data-target="otimizacao">PSO</a></li>
-    <li><a href="#problema" data-target="problema">Problema</a></li>
-    <li><a href="#metodo" data-target="metodo">Método</a></li>
+    <li><a href="#problema" data-target="problema">Teoria</a></li>
     <li><a href="#referencias" data-target="referencias">Refs</a></li>
   </ul>
 </nav>
@@ -85,7 +84,13 @@
         <div class="cost-warn" id="costWarn" style="display: none;"></div>
       </div>
 
-      <div id="paramInputs"></div>
+      <details class="params-accordion" id="paramsAccordion">
+        <summary>
+          <span class="pa-label">parâmetros</span>
+          <span class="pa-hint">tocar pra editar</span>
+        </summary>
+        <div id="paramInputs"></div>
+      </details>
     </div>
 
     <div class="card" style="padding: 0.5rem; display: flex; flex-direction: column;">
@@ -158,32 +163,35 @@
     </div>
     <p class="porkchop-explain" id="porkchopExplain"></p>
 
-    <!-- 2) Ranges customizáveis -->
-    <div class="porkchop-ranges">
-      <div class="pr-axis">
-        <div class="pr-label">eixo X · <span id="porkchopXLabel"></span></div>
-        <div class="pr-inputs">
-          <input type="number" id="porkchopXMin" step="any" />
-          <span class="pr-sep">→</span>
-          <input type="number" id="porkchopXMax" step="any" />
+    <!-- 2) Ranges customizáveis (collapsed em mobile) -->
+    <details class="porkchop-ranges-details" id="porkchopRangesDetails">
+      <summary>⚙ ranges & resolução</summary>
+      <div class="porkchop-ranges">
+        <div class="pr-axis">
+          <div class="pr-label">eixo X · <span id="porkchopXLabel"></span></div>
+          <div class="pr-inputs">
+            <input type="number" id="porkchopXMin" step="any" />
+            <span class="pr-sep">→</span>
+            <input type="number" id="porkchopXMax" step="any" />
+          </div>
+        </div>
+        <div class="pr-axis">
+          <div class="pr-label">eixo Y · <span id="porkchopYLabel"></span></div>
+          <div class="pr-inputs">
+            <input type="number" id="porkchopYMin" step="any" />
+            <span class="pr-sep">→</span>
+            <input type="number" id="porkchopYMax" step="any" />
+          </div>
+        </div>
+        <div class="pr-axis">
+          <div class="pr-label">resolução</div>
+          <div class="pr-inputs">
+            <input type="number" id="porkchopN" value="50" min="10" max="200" step="5" style="width:70px" />
+            <span class="pr-hint">N × N samples</span>
+          </div>
         </div>
       </div>
-      <div class="pr-axis">
-        <div class="pr-label">eixo Y · <span id="porkchopYLabel"></span></div>
-        <div class="pr-inputs">
-          <input type="number" id="porkchopYMin" step="any" />
-          <span class="pr-sep">→</span>
-          <input type="number" id="porkchopYMax" step="any" />
-        </div>
-      </div>
-      <div class="pr-axis">
-        <div class="pr-label">resolução</div>
-        <div class="pr-inputs">
-          <input type="number" id="porkchopN" value="50" min="10" max="200" step="5" style="width:70px" />
-          <span class="pr-hint">N × N samples</span>
-        </div>
-      </div>
-    </div>
+    </details>
 
     <!-- 3) Parâmetros fixos (informativo) -->
     <div class="porkchop-fixed" id="porkchopFixed"></div>
@@ -228,14 +236,26 @@
 
 <!-- PROBLEMA -->
 <section id="problema" class="reveal">
-  <h2>Problema</h2>
+  <h2>Teoria</h2>
+  <nav class="theory-toc">
+    <a href="#t-problema" data-toc="t-problema">Problema</a>
+    <a href="#t-tipos" data-toc="t-tipos">Tipos de missão</a>
+    <a href="#t-variantes" data-toc="t-variantes">Variantes</a>
+    <a href="#t-hipoteses" data-toc="t-hipoteses">Hipóteses</a>
+    <a href="#t-lambert" data-toc="t-lambert">Lambert</a>
+    <a href="#t-saida" data-toc="t-saida">Saída/Captura</a>
+    <a href="#t-flyby" data-toc="t-flyby">Swing-by</a>
+    <a href="#t-pso" data-toc="t-pso">PSO</a>
+  </nav>
+
+  <h3 id="t-problema">O problema</h3>
   <p>
     O simulador resolve <strong>otimização de transferências interplanetárias impulsivas</strong>
     entre dois corpos do sistema solar. Cada missão da galeria é uma instância
     do mesmo problema com bodies, órbitas e estratégia diferentes.
   </p>
 
-  <h3>Tipos de missão</h3>
+  <h3 id="t-tipos">Tipos de missão</h3>
   <div class="grid">
     <div class="card">
       <h3>Direta (single-leg)</h3>
@@ -264,7 +284,7 @@
     </div>
   </div>
 
-  <h3>Variantes por órbita de partida</h3>
+  <h3 id="t-variantes">Variantes por órbita de partida</h3>
   <p>
     Cada destino tem variantes <b>LEO</b> (h=200 km) e <b>GEO</b> (h=35786 km).
     Para v<sub>∞</sub> baixo (Marte, Vênus, Lua) sair de GEO é mais barato; para
@@ -275,11 +295,10 @@
   <p>
     A missão Terra→Lua é a única que muda de paradigma: corpo central
     passa a ser a Terra, a Lua orbita ao redor dela, distâncias em milhares
-    de km, tempos em dias. Mostra que a abstração de missão funciona fora
-    do paradigma heliocêntrico.
+    de km, tempos em dias.
   </p>
 
-  <h3>Hipóteses comuns a todas as missões</h3>
+  <h3 id="t-hipoteses">Hipóteses</h3>
   <ul>
     <li>Órbitas planetárias circulares e coplanares (problema 2D)</li>
     <li>Patched conics — dentro de cada SOI, só a gravidade local</li>
@@ -287,13 +306,8 @@
     <li>Swing-by tratado como deflexão simples no plano</li>
     <li>Lambert apenas com m=0 (zero revoluções, automaticamente prógrado)</li>
   </ul>
-</section>
 
-<!-- MÉTODO -->
-<section id="metodo" class="reveal">
-  <h2>Método</h2>
-
-  <h3>Problema de Lambert</h3>
+  <h3 id="t-lambert">Problema de Lambert</h3>
   <p>
     Dado um par <strong>(r₁, r₂)</strong> e um tempo de voo, calcula a órbita
     Kepleriana que conecta os pontos. Algoritmo de <strong>Izzo</strong> (Newton-Raphson
@@ -302,7 +316,7 @@
   </p>
   <div class="formula">[V₁, V₂] = Lambert(r₁, r₂, tf, m, μ_central)</div>
 
-  <h3>Saída da órbita de partida</h3>
+  <h3 id="t-saida">Saída da órbita de partida</h3>
   <p>v<sub>∞</sub> é a velocidade "no infinito" relativa ao corpo de partida:</p>
   <div class="formula">
     v<sub>∞</sub> = V₁ − v<sub>partida/central</sub><br>
@@ -318,7 +332,7 @@
     ΔV<sub>captura</sub> = |v<sub>p</sub> − v<sub>circ,destino</sub>|
   </div>
 
-  <h3>Swing-by (gravity assist)</h3>
+  <h3 id="t-flyby">Swing-by (gravity assist)</h3>
   <p>Deflexão hiperbólica em torno do corpo, sem gasto de propelente:</p>
   <div class="formula">sin(δ) = 1 / (1 + r<sub>p</sub>·v<sub>circ,partida</sub>/μ<sub>flyby</sub>)</div>
   <p>
@@ -337,7 +351,7 @@
     velocidade Lambert da próxima perna (zero se flyby for perfeitamente alinhado).
   </p>
 
-  <h3>PSO — Particle Swarm Optimization</h3>
+  <h3 id="t-pso">PSO — Particle Swarm Optimization</h3>
   <div class="formula">v ← w·v + φ<sub>p</sub>·r<sub>p</sub>·(p<sub>best</sub> − x) + φ<sub>g</sub>·r<sub>g</sub>·(g<sub>best</sub> − x)</div>
   <p>
     w = 0.9, φ<sub>p</sub> = 0.6, φ<sub>g</sub> = 0.8. Espaço de busca multimodal

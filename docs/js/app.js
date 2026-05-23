@@ -996,6 +996,27 @@ function bindReveal() {
 // Init
 // ============================================================
 
+// Haptic feedback (no-op se browser não suportar)
+function haptic(ms = 8) {
+  if (navigator.vibrate) {
+    try { navigator.vibrate(ms); } catch (e) {}
+  }
+}
+
+function bindTheoryTOC() {
+  $$('.theory-toc a').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.dataset.toc;
+      const target = document.getElementById(id);
+      if (!target) return;
+      haptic();
+      // Scroll suave dentro da tab (não troca de tab)
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
 function bindEvents() {
   $("btnRun").addEventListener("click", runPSO);
   $("btnStop").addEventListener("click", stopPSO);
@@ -1003,11 +1024,31 @@ function bindEvents() {
   bindNav();
   bindReveal();
   bindAnim();
+  bindTheoryTOC();
+  // Haptic feedback em interações principais (mobile)
+  $$('nav.bottom-nav a').forEach((a) =>
+    a.addEventListener('click', () => haptic(6))
+  );
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.matches('.preset-btn, .filter-chip, .mission-card, #btnRun, #btnPorkchop, .btn-icon')) {
+      haptic(8);
+    }
+  }, true);
   window.addEventListener('hashchange', handleHashRoute);
+}
+
+function applyDetailsStateForViewport() {
+  const isMobile = isMobileTabs();
+  $$("details.params-accordion, details.porkchop-ranges-details").forEach((d) => {
+    d.open = !isMobile;
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
+  applyDetailsStateForViewport();
+  window.addEventListener('resize', applyDetailsStateForViewport);
   const initialHash = window.location.hash;
   const m = initialHash.match(/^#\/mission\/([\w-]+)/);
   const initialMission = (m && Missions[m[1]]) ? m[1] : 'mars-direct-leo';
