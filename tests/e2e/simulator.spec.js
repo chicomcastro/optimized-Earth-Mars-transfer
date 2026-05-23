@@ -53,6 +53,10 @@ async function clickFirstPreset(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // Marca onboarding como visto pra não bloquear cliques nos testes
+  await page.addInitScript(() => {
+    try { localStorage.setItem('onboard-v1-seen', '1'); } catch (_) {}
+  });
   await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
   await waitAppReady(page);
 });

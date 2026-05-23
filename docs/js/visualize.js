@@ -190,7 +190,7 @@ function plotTrajectory(divId, sim, opts = {}) {
       title: { text: `y [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
     },
-    margin: isNarrow ? { t: 30, l: 40, r: 12, b: 70 } : { t: 30, l: 50, r: 12, b: 40 },
+    margin: isNarrow ? { t: 30, l: 40, r: 30, b: 60 } : { t: 30, l: 50, r: 30, b: 40 },
     showlegend: true,
     legend: isNarrow
       ? { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
@@ -286,28 +286,40 @@ function plotPorkchop(divId, opts) {
     z.push(row);
   }
 
+  const isNarrow = window.innerWidth < 820;
   const trace = {
     z, x: xVals, y: yVals,
     type: 'contour', colorscale: 'Viridis',
     contours: { coloring: 'heatmap' },
-    colorbar: { title: 'ΔV [km/s]', thickness: 14 },
+    colorbar: {
+      title: { text: 'ΔV', font: { size: 10 } },
+      thickness: isNarrow ? 8 : 14,
+      len: 0.95,
+      x: 1, xanchor: 'right',
+    },
     hovertemplate: `${e.xLabel}: %{x:.2f}<br>${e.yLabel}: %{y:.2f}<br>ΔV = %{z:.2f} km/s<extra></extra>`,
   };
+  // Título: usa só "Porkchop" em mobile, label curto em desktop
+  const titleText = isNarrow
+    ? 'Porkchop'
+    : (opts.title || 'Porkchop (clique para aplicar)');
   const layout = {
     paper_bgcolor: '#070912', plot_bgcolor: '#070912',
-    font: { color: '#e8eefb', size: 11 },
+    font: { color: '#e8eefb', size: isNarrow ? 9 : 11 },
     xaxis: {
-      title: { text: e.xLabel, standoff: 12, font: { size: 12 } },
+      title: { text: e.xLabel, standoff: 8, font: { size: isNarrow ? 10 : 12 } },
       gridcolor: '#1d2742',
       automargin: true,
     },
     yaxis: {
-      title: { text: e.yLabel, standoff: 12, font: { size: 12 } },
+      title: { text: e.yLabel, standoff: 8, font: { size: isNarrow ? 10 : 12 } },
       gridcolor: '#1d2742',
       automargin: true,
     },
-    title: { text: opts.title || 'Porkchop (clique para aplicar)', font: { size: 13 } },
-    margin: { t: 40, l: 80, r: 60, b: 60 },
+    title: { text: titleText, font: { size: isNarrow ? 11 : 13 } },
+    margin: isNarrow
+      ? { t: 30, l: 50, r: 40, b: 50 }
+      : { t: 40, l: 80, r: 60, b: 60 },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 

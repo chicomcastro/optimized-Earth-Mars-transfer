@@ -332,9 +332,29 @@ function bindAnim() {
 let costTween = { rafId: null, current: NaN };
 function tweenCost(to, duration = 220) {
   const el = $("costValue");
+  const trendEl = $("costTrend");
   const from = isFinite(costTween.current) ? costTween.current : to;
   const start = performance.now();
   if (costTween.rafId) cancelAnimationFrame(costTween.rafId);
+  // Indicador de tendência (▲ ▼ ●) só se houve mudança significativa
+  if (trendEl) {
+    const diff = to - from;
+    if (!isFinite(to)) {
+      trendEl.textContent = '';
+      trendEl.className = 'cost-trend';
+    } else if (!isFinite(from) || Math.abs(diff) < 0.001) {
+      trendEl.textContent = '';
+      trendEl.className = 'cost-trend';
+    } else if (diff < 0) {
+      trendEl.textContent = '▼';
+      trendEl.className = 'cost-trend trend-down';
+      trendEl.title = `−${Math.abs(diff).toFixed(2)} km/s`;
+    } else {
+      trendEl.textContent = '▲';
+      trendEl.className = 'cost-trend trend-up';
+      trendEl.title = `+${diff.toFixed(2)} km/s`;
+    }
+  }
   if (!isFinite(to)) {
     el.textContent = "∞";
     costTween.current = NaN;
@@ -552,12 +572,33 @@ function stopPSO() {
 
 function setMission(missionId, opts = {}) {
   if (!Missions[missionId]) return;
+  const wasDifferent = missionId !== currentMissionId;
   currentMissionId = missionId;
   const m = currentMission();
+
+  // Skeleton shimmer no simulador (feedback visual de troca de missão)
+  if (wasDifferent) {
+    const sim = $("simulador");
+    if (sim) {
+      sim.classList.remove("skeleton-flash");
+      void sim.offsetWidth;
+      sim.classList.add("skeleton-flash");
+    }
+  }
 
   // Em mobile usa label curto (m.short); desktop usa o longo (m.label)
   const isNarrow = window.matchMedia('(max-width: 820px)').matches;
   $("missionTitle").textContent = (isNarrow && m.short) ? m.short : m.label;
+  // Tipa o badge por categoria (cor)
+  const badgeKind = (label) => {
+    const t = String(label || '').toLowerCase();
+    if (t.includes('hohmann')) return 'ok';
+    if (t.includes('cara') || t.includes('alto')) return 'danger';
+    if (t.includes('ganhador') || t.includes('eficiente')) return 'ok';
+    if (t.includes('geocêntrico')) return 'info';
+    return '';
+  };
+  $("missionBadge").dataset.kind = badgeKind(m.badge);
   $("missionBadge").textContent = m.badge || '';
   $("missionDescription").textContent = m.description || '';
 
@@ -612,15 +653,24 @@ function renderGallery() {
     .map((id) => Missions[id])
     .filter((m) => m && (currentDestFilter === 'all' || m.destination === currentDestFilter));
 
+  const badgeKind = (label) => {
+    const t = String(label || '').toLowerCase();
+    if (t.includes('hohmann')) return 'ok';
+    if (t.includes('cara') || t.includes('alto')) return 'danger';
+    if (t.includes('ganhador')) return 'ok';
+    if (t.includes('geocêntrico')) return 'info';
+    return '';
+  };
   const cards = missions.map((m) => {
     const dest = Destinations.find((d) => d.id === m.destination);
     const destColor = dest ? dest.color : '#888';
     const destLabel = dest ? dest.label : m.destination;
     const flybyTxt = m.flybyAt ? ` · via ${Bodies[m.flybyAt].label}` : '';
     const active = m.id === currentMissionId ? 'active' : '';
+    const kind = badgeKind(m.badge);
     return `
       <div class="mission-card ${active}" data-mission="${m.id}">
-        <div class="mc-badge" style="--dest-color:${destColor}">
+        <div class="mc-badge" data-kind="${kind}" style="--dest-color:${destColor}">
           <span class="mc-dest-dot" style="background:${destColor}"></span>
           ${destLabel}
         </div>
@@ -998,6 +1048,58 @@ function bindReveal() {
 // Init
 // ============================================================
 
+// Onboarding tour — mostra 3 passos na primeira visita
+const ONBOARD_KEY = 'onboard-v1-seen';
+const ONBOARD_STEPS = [
+  {
+    title: '🛰 Boas-vindas',
+    text: 'Este é um simulador de transferências interplanetárias. Resolve Lambert + PSO no navegador, sem servidor.',
+  },
+  {
+    title: '🪐 Escolha uma missão',
+    text: 'Toque num card da galeria. Compare LEO vs GEO vs swing-by por destino — cada um com seu próprio ΔV.',
+  },
+  {
+    title: '🎛 Edite e otimize',
+    text: 'No simulador, mexa os sliders e veja a trajetória recalcular. Quer encontrar o ótimo? Use a aba PSO.',
+  },
+];
+let onboardIdx = 0;
+
+function showOnboard() {
+  try {
+    if (localStorage.getItem(ONBOARD_KEY) === '1') return;
+  } catch (_) {}
+  onboardIdx = 0;
+  $("onboard").hidden = false;
+  renderOnboardStep();
+}
+function renderOnboardStep() {
+  const step = ONBOARD_STEPS[onboardIdx];
+  $("onboardStep").textContent = `${onboardIdx + 1} / ${ONBOARD_STEPS.length}`;
+  $("onboardTitle").textContent = step.title;
+  $("onboardText").textContent = step.text;
+  $("onboardNext").textContent = onboardIdx === ONBOARD_STEPS.length - 1
+    ? 'começar →' : 'próximo →';
+}
+function dismissOnboard() {
+  $("onboard").hidden = true;
+  try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (_) {}
+}
+function bindOnboard() {
+  $("onboardNext").addEventListener("click", () => {
+    haptic();
+    if (onboardIdx >= ONBOARD_STEPS.length - 1) {
+      dismissOnboard();
+    } else {
+      onboardIdx++;
+      renderOnboardStep();
+    }
+  });
+  $("onboardSkip").addEventListener("click", dismissOnboard);
+  $("onboard").querySelector('.onboard-backdrop').addEventListener("click", dismissOnboard);
+}
+
 // Haptic feedback (no-op se browser não suportar)
 function haptic(ms = 8) {
   if (navigator.vibrate) {
@@ -1027,6 +1129,7 @@ function bindEvents() {
   bindReveal();
   bindAnim();
   bindTheoryTOC();
+  bindOnboard();
   // Haptic feedback em interações principais (mobile)
   $$('nav.bottom-nav a').forEach((a) =>
     a.addEventListener('click', () => haptic(6))
@@ -1088,4 +1191,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 200);
   }
+  // Onboarding tour só na primeira visita
+  setTimeout(showOnboard, 500);
 });
