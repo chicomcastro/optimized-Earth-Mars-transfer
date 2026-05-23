@@ -155,7 +155,8 @@ function computeLim(sim, frame) {
     const b = Bodies[pid];
     if (b && b.orbital_radius) maxR_AU = Math.max(maxR_AU, b.orbital_radius / UA);
   }
-  const lim = maxR_AU > 0 ? maxR_AU * 1.15 : 1.7;
+  // breathing room maior para o plot não ficar apertado
+  const lim = maxR_AU > 0 ? maxR_AU * 1.25 : 1.7;
   if (frame === 'geo') return lim * 1.6;
   if (frame === 'synodic') return lim * 1.1;
   return lim;
@@ -190,7 +191,7 @@ function plotTrajectory(divId, sim, opts = {}) {
       title: { text: `y [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
     },
-    margin: isNarrow ? { t: 30, l: 40, r: 30, b: 60 } : { t: 30, l: 50, r: 30, b: 40 },
+    margin: isNarrow ? { t: 28, l: 38, r: 18, b: 56 } : { t: 30, l: 50, r: 30, b: 40 },
     showlegend: true,
     legend: isNarrow
       ? { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
