@@ -219,6 +219,7 @@ function refreshScenario(opts = {}) {
     frame: Anim.frame,
     showShadow: Anim.showShadow,
   });
+  if (typeof scheduleURLSync === 'function') scheduleURLSync();
 }
 
 // === Animação ===
@@ -319,6 +320,7 @@ function bindAnim() {
             t: Anim.t, frame: Anim.frame, showShadow: Anim.showShadow,
           });
         }
+        if (typeof scheduleURLSync === 'function') scheduleURLSync();
       }
     });
   });
@@ -703,6 +705,18 @@ function renderGallery() {
 
 function handleHashRoute() {
   const hash = window.location.hash;
+  // Nova rota com state: #/m/<id>?s=<b64>
+  const parsed = window.Share ? Share.parseHash(hash) : null;
+  if (parsed && parsed.missionId && Missions[parsed.missionId]) {
+    const wasDifferent = parsed.missionId !== currentMissionId;
+    if (wasDifferent) setMission(parsed.missionId);
+    if (parsed.state) {
+      // Aplica params + frame antes do refresh
+      applySharedState(parsed.state);
+    }
+    if (isMobileTabs()) setActiveTab('simulador');
+    return;
+  }
   const m = hash.match(/^#\/mission\/([\w-]+)/);
   if (m) {
     const missionId = m[1];
@@ -1121,6 +1135,88 @@ function bindTheoryTOC() {
   });
 }
 
+// ============================================================
+// Share / Export — URL com state, copiar link, baixar PNG
+// ============================================================
+
+// Aplica state decodificado do hash nos inputs + frame, sem disparar
+// updateURL (evita loop hashchange).
+function applySharedState(state) {
+  if (!state) return;
+  if (Array.isArray(state.x) && state.x.length) {
+    const m = currentMission();
+    const lb = m.params.map((p) => p.bounds[0]);
+    const ub = m.params.map((p) => p.bounds[1]);
+    renderInputs(clampVec(state.x, lb, ub));
+  }
+  if (state.frame && state.frame !== Anim.frame) {
+    Anim.frame = state.frame;
+    const radioMap = { helio: 'frameHelio', geo: 'frameGeo', synodic: 'frameSyn' };
+    const r = $(radioMap[state.frame]);
+    if (r) r.checked = true;
+  }
+  refreshScenario({ pulse: false });
+}
+
+let _urlSyncTimer = 0;
+function scheduleURLSync() {
+  if (!window.Share || !currentMissionId) return;
+  clearTimeout(_urlSyncTimer);
+  _urlSyncTimer = setTimeout(() => {
+    const x = readInputs();
+    Share.updateURLWithState(currentMissionId, x, Anim.frame);
+  }, 500);
+}
+
+function showShareModal() {
+  const modal = $("shareModal");
+  const url = Share.buildShareURL(currentMissionId, readInputs(), Anim.frame);
+  $("shareURL").value = url;
+  $("shareToast").hidden = true;
+  modal.hidden = false;
+  setTimeout(() => $("shareURL").select(), 50);
+}
+function hideShareModal() { $("shareModal").hidden = true; }
+
+function bindShare() {
+  const btn = $("btnShare");
+  if (btn) btn.addEventListener('click', () => { haptic(8); showShareModal(); });
+  const close = $("shareClose");
+  if (close) close.addEventListener('click', hideShareModal);
+  document.querySelectorAll('#shareModal [data-close]').forEach((el) =>
+    el.addEventListener('click', hideShareModal)
+  );
+  const copyBtn = $("shareCopy");
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      const url = $("shareURL").value;
+      const ok = await Share.copyToClipboard(url);
+      const toast = $("shareToast");
+      toast.textContent = ok ? '✓ link copiado' : 'falha ao copiar — selecione manualmente';
+      toast.hidden = false;
+      haptic(ok ? 8 : 16);
+    });
+  }
+  const pngBtn = $("sharePNG");
+  if (pngBtn) {
+    pngBtn.addEventListener('click', async () => {
+      pngBtn.disabled = true;
+      const m = currentMission();
+      const fname = `${m.id || 'trajectory'}-${Date.now()}.png`;
+      const ok = await Share.downloadPlotPNG('plot', fname);
+      const toast = $("shareToast");
+      toast.textContent = ok ? `✓ ${fname} baixado` : 'falha ao gerar PNG';
+      toast.hidden = false;
+      haptic(8);
+      pngBtn.disabled = false;
+    });
+  }
+  // Esc fecha
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$("shareModal").hidden) hideShareModal();
+  });
+}
+
 function bindEvents() {
   $("btnRun").addEventListener("click", runPSO);
   $("btnStop").addEventListener("click", stopPSO);
@@ -1130,6 +1226,7 @@ function bindEvents() {
   bindAnim();
   bindTheoryTOC();
   bindOnboard();
+  bindShare();
   // Haptic feedback em interações principais (mobile)
   $$('nav.bottom-nav a').forEach((a) =>
     a.addEventListener('click', () => haptic(6))
@@ -1175,10 +1272,21 @@ document.addEventListener("DOMContentLoaded", () => {
   bindPlotResize();
   window.addEventListener('resize', applyDetailsStateForViewport);
   const initialHash = window.location.hash;
-  const m = initialHash.match(/^#\/mission\/([\w-]+)/);
-  const initialMission = (m && Missions[m[1]]) ? m[1] : 'mars-direct-leo';
+  // Parse nova rota #/m/<id>?s=<b64> e legacy #/mission/<id>
+  const parsedShare = window.Share ? Share.parseHash(initialHash) : null;
+  const legacy = initialHash.match(/^#\/mission\/([\w-]+)/);
+  let initialMission = 'mars-direct-leo';
+  let initialState = null;
+  if (parsedShare && parsedShare.missionId && Missions[parsedShare.missionId]) {
+    initialMission = parsedShare.missionId;
+    initialState = parsedShare.state;
+  } else if (legacy && Missions[legacy[1]]) {
+    initialMission = legacy[1];
+  }
   setMission(initialMission);
+  if (initialState) applySharedState(initialState);
   renderGallery();
+  const m = parsedShare || legacy; // truthy se URL pediu uma missão específica
   // Mobile: começa na galeria; se URL pediu missão, vai pro simulador
   if (isMobileTabs()) {
     setActiveTab(m ? 'simulador' : 'galeria');

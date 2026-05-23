@@ -86,6 +86,11 @@
         </div>
         <div class="cost-sub" id="costSub"></div>
         <div class="cost-warn" id="costWarn" style="display: none;"></div>
+        <div class="cost-actions">
+          <button type="button" class="btn-ghost btn-share" id="btnShare" title="Compartilhar cenário">
+            <span aria-hidden="true">🔗</span> compartilhar
+          </button>
+        </div>
       </div>
 
       <details class="params-accordion" id="paramsAccordion">
@@ -482,6 +487,25 @@
   </div>
 </div>
 
+<!-- Share modal -->
+<div class="share-modal" id="shareModal" hidden>
+  <div class="share-backdrop" data-close="1"></div>
+  <div class="share-card">
+    <button class="share-close" id="shareClose" aria-label="fechar">✕</button>
+    <h3 class="share-title">Compartilhar cenário</h3>
+    <p class="share-desc">URL inclui missão, parâmetros e referencial.</p>
+    <div class="share-row">
+      <input type="text" id="shareURL" class="share-url" readonly />
+      <button class="btn btn-primary" id="shareCopy" type="button">copiar</button>
+    </div>
+    <div class="share-divider"></div>
+    <button class="btn share-png" id="sharePNG" type="button">
+      <span aria-hidden="true">📷</span> baixar PNG da trajetória
+    </button>
+    <div class="share-toast" id="shareToast" hidden></div>
+  </div>
+</div>
+
 <script src="js/vec.js"></script>
 <script src="js/constants.js"></script>
 <script src="js/bodies.js"></script>
@@ -492,6 +516,7 @@
 <script src="js/pso.js"></script>
 <script src="js/animation.js"></script>
 <script src="js/visualize.js"></script>
+<script src="js/share.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

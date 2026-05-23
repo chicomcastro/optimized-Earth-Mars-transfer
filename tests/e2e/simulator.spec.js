@@ -926,3 +926,47 @@ test('14 - PSO mostra convergência completa', async ({ page }) => {
   await page.locator('#otimizacao').scrollIntoViewIfNeeded();
   await shoot(page, '14-pso-convergencia-completa');
 });
+
+test('51 - share modal abre + URL contém missionId', async ({ page }) => {
+  await selectMission(page, 'mars-direct-leo');
+  await page.click('#btnShare');
+  await page.waitForSelector('#shareModal:not([hidden])');
+  const url = await page.locator('#shareURL').inputValue();
+  expect(url).toContain('#/m/mars-direct-leo');
+  expect(url).toMatch(/\?s=/);
+  await shoot(page, '51-share-modal');
+  await page.click('#shareClose');
+});
+
+test('52 - URL com state aplica params no load', async ({ page }) => {
+  // Encode state com params do mars-direct-leo: [phase_marte_rad, t_TM_days]
+  await page.goto('/index.html');
+  await page.waitForFunction(() => (window.Share && window.Share.buildShareURL), { timeout: 5000 });
+  const url = await page.evaluate(() => {
+    // phase_marte = π (180°), t_TM = 220 d
+    return window.Share.buildShareURL('mars-direct-leo', [Math.PI, 220], 'helio');
+  });
+  const hash = url.substring(url.indexOf('#'));
+  await page.goto('/index.html' + hash);
+  await page.waitForFunction(() => typeof window.simulate === 'function', { timeout: 5000 });
+  await page.waitForTimeout(800);
+
+  // Sliders mostram graus (angle) e dias — verifica conversão
+  const vals = await page.evaluate(() => {
+    return [...document.querySelectorAll('#paramInputs .pc-slider')].map(i => parseFloat(i.value));
+  });
+  expect(vals.length).toBe(2);
+  expect(vals[0]).toBeCloseTo(180, 0); // π rad → 180°
+  expect(vals[1]).toBeCloseTo(220, 0);
+});
+
+test('53 - share copy URL coloca no clipboard (verifica toast)', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await selectMission(page, 'mars-direct-leo');
+  await page.click('#btnShare');
+  await page.waitForSelector('#shareModal:not([hidden])');
+  await page.click('#shareCopy');
+  await page.waitForSelector('#shareToast:not([hidden])');
+  const toastTxt = await page.locator('#shareToast').textContent();
+  expect(toastTxt).toContain('copiado');
+});
