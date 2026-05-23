@@ -54,6 +54,12 @@ async function clickFirstPreset(page) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
+  // Esconde onboarding modal (caso tenha aparecido)
+  await page.evaluate(() => {
+    try { localStorage.setItem('onboard-v1-seen', '1'); } catch (_) {}
+    const ob = document.getElementById('onboard');
+    if (ob) ob.hidden = true;
+  });
   await waitAppReady(page);
 });
 

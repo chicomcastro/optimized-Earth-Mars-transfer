@@ -155,9 +155,11 @@ function computeLim(sim, frame) {
     const b = Bodies[pid];
     if (b && b.orbital_radius) maxR_AU = Math.max(maxR_AU, b.orbital_radius / UA);
   }
-  const lim = maxR_AU > 0 ? maxR_AU * 1.15 : 1.7;
-  if (frame === 'geo') return lim * 1.6;
-  if (frame === 'synodic') return lim * 1.1;
+  // Margem mínima — com constrain:'domain', plotly respeita esse range
+  // e ajusta o domínio do eixo pra manter scaleratio. Zoom mais tight.
+  const lim = maxR_AU > 0 ? maxR_AU * 1.08 : 1.7;
+  if (frame === 'geo') return lim * 1.55;
+  if (frame === 'synodic') return lim * 1.05;
   return lim;
 }
 
@@ -184,22 +186,27 @@ function plotTrajectory(divId, sim, opts = {}) {
     xaxis: {
       title: { text: `x [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
-      scaleanchor: 'y', scaleratio: 1,
+      // constrain:'domain' — Plotly encolhe o domínio do eixo pra manter
+      // scaleratio sem expandir o range. Resultado: zoom respeitado.
+      scaleanchor: 'y', scaleratio: 1, constrain: 'domain',
     },
     yaxis: {
       title: { text: `y [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
+      constrain: 'domain',
     },
-    margin: isNarrow ? { t: 30, l: 40, r: 12, b: 70 } : { t: 30, l: 50, r: 12, b: 40 },
+    // Em mobile, margens mínimas + sem title. Plot area quadrado via
+    // constrain:'domain'. Legenda overlay no canto pra não roubar espaço.
+    margin: isNarrow ? { t: 8, l: 38, r: 8, b: 36 } : { t: 30, l: 50, r: 30, b: 40 },
     showlegend: true,
     legend: isNarrow
-      ? { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
-          font: { size: 9 }, orientation: 'h',
-          x: 0.5, xanchor: 'center', y: -0.18, yanchor: 'top' }
+      ? { bgcolor: 'rgba(7,9,18,0.78)', bordercolor: '#1d2742', borderwidth: 1,
+          font: { size: 7.5 }, orientation: 'v', itemwidth: 30,
+          x: 0.985, xanchor: 'right', y: 0.985, yanchor: 'top' }
       : { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
           font: { size: 10 }, orientation: 'v',
           x: 1.02, xanchor: 'left', y: 1, yanchor: 'top' },
-    title: { text: opts.title || titleMap[frame], font: { size: 13 } },
+    title: isNarrow ? null : { text: opts.title || titleMap[frame], font: { size: 13 } },
   };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });
@@ -286,28 +293,40 @@ function plotPorkchop(divId, opts) {
     z.push(row);
   }
 
+  const isNarrow = window.innerWidth < 820;
   const trace = {
     z, x: xVals, y: yVals,
     type: 'contour', colorscale: 'Viridis',
     contours: { coloring: 'heatmap' },
-    colorbar: { title: 'ΔV [km/s]', thickness: 14 },
+    colorbar: {
+      title: { text: 'ΔV', font: { size: 10 } },
+      thickness: isNarrow ? 8 : 14,
+      len: 0.95,
+      x: 1, xanchor: 'right',
+    },
     hovertemplate: `${e.xLabel}: %{x:.2f}<br>${e.yLabel}: %{y:.2f}<br>ΔV = %{z:.2f} km/s<extra></extra>`,
   };
+  // Título: usa só "Porkchop" em mobile, label curto em desktop
+  const titleText = isNarrow
+    ? 'Porkchop'
+    : (opts.title || 'Porkchop (clique para aplicar)');
   const layout = {
     paper_bgcolor: '#070912', plot_bgcolor: '#070912',
-    font: { color: '#e8eefb', size: 11 },
+    font: { color: '#e8eefb', size: isNarrow ? 9 : 11 },
     xaxis: {
-      title: { text: e.xLabel, standoff: 12, font: { size: 12 } },
+      title: { text: e.xLabel, standoff: 8, font: { size: isNarrow ? 10 : 12 } },
       gridcolor: '#1d2742',
       automargin: true,
     },
     yaxis: {
-      title: { text: e.yLabel, standoff: 12, font: { size: 12 } },
+      title: { text: e.yLabel, standoff: 8, font: { size: isNarrow ? 10 : 12 } },
       gridcolor: '#1d2742',
       automargin: true,
     },
-    title: { text: opts.title || 'Porkchop (clique para aplicar)', font: { size: 13 } },
-    margin: { t: 40, l: 80, r: 60, b: 60 },
+    title: { text: titleText, font: { size: isNarrow ? 11 : 13 } },
+    margin: isNarrow
+      ? { t: 30, l: 50, r: 40, b: 50 }
+      : { t: 40, l: 80, r: 60, b: 60 },
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
 
