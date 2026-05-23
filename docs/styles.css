@@ -1322,23 +1322,25 @@ footer {
   .mission-description { display: none; }
   /* Cards do simulador mais finos com spacing consistente */
   #simulador .card { padding: 0.7rem; margin: 0 0 0.55rem; }
-  #simulador .simulator-grid { gap: 0.55rem; margin: 0; }
-  #simulador .simulator-grid > .card { margin: 0; } /* gap do grid já espaça */
+  /* minmax(0,1fr) impede que conteúdo de min-content (anim-player) estique o grid */
+  #simulador .simulator-grid { gap: 0.55rem; margin: 0; grid-template-columns: minmax(0, 1fr); }
+  #simulador .simulator-grid > .card { margin: 0; min-width: 0; } /* gap do grid já espaça */
   #simulador .simulator-grid > .card:first-child { padding: 0.7rem 0.7rem 0.4rem; }
   /* Previne overflow horizontal mas não vertical (não clipa accordion summary) */
   #simulador .card { overflow-x: clip; max-width: 100%; }
   /* Esconde "tocar pra editar" — redundante; o ▶ já indica acordeão */
   .params-accordion .pa-hint { font-size: 0; }
 
-  /* Player de animação mais compacto */
+  /* Player de animação mais compacto. flex-wrap pra não estourar largura */
   .anim-player {
     gap: 0.35rem; padding: 0.4rem 0.45rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   .btn-icon { width: 32px; height: 32px; font-size: 0.82rem; }
   #animPlay { width: 50px; height: 50px; font-size: 1.25rem; }
-  .anim-scrubber { min-width: 60px; }
-  .anim-time { font-size: 0.68rem; min-width: 60px; }
+  .anim-scrubber { min-width: 0; flex: 1 1 80px; }
+  .anim-time { font-size: 0.68rem; min-width: 0; }
+  .anim-speed { min-width: 0; }
   .anim-speed label { font-size: 0.62rem; padding: 0.2rem 0.35rem; min-height: 28px; }
 
   /* Garante que SVG do plot fica dentro do card */
