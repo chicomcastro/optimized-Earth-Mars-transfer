@@ -90,7 +90,19 @@
           <button type="button" class="btn-ghost btn-share" id="btnShare" title="Compartilhar cenário">
             <span aria-hidden="true">🔗</span> compartilhar
           </button>
+          <button type="button" class="btn-ghost btn-compare" id="btnCompareAdd" title="Adicionar ao modo comparar (até 3)">
+            <span aria-hidden="true">📊</span> comparar
+          </button>
         </div>
+      </div>
+      <!-- Drawer da lista de comparação (escondido quando vazio) -->
+      <div class="compare-drawer" id="compareDrawer" hidden>
+        <div class="compare-header">
+          <span class="compare-title">Comparando <span id="compareCount">0</span>/3</span>
+          <button type="button" class="compare-clear" id="compareClear">limpar</button>
+        </div>
+        <div class="compare-list" id="compareList"></div>
+        <div class="compare-hint">animação fica pausada · frame fixo em helio</div>
       </div>
 
       <details class="params-accordion" id="paramsAccordion">
@@ -517,6 +529,7 @@
 <script src="js/animation.js"></script>
 <script src="js/visualize.js"></script>
 <script src="js/share.js"></script>
+<script src="js/compare.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

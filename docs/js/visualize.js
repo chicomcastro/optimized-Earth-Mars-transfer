@@ -149,12 +149,19 @@ function computeLim(sim, frame) {
   const mission = sim.mission;
   const isKkm = mission && mission.plotUnit === 'kkm';
   if (isKkm) return 500;
-  const visible = (mission && mission.visibleBodies) || ['terra', 'venus', 'marte'];
+  // Em compare mode, considera também o maxR das missões comparadas
+  const visibleSet = new Set((mission && mission.visibleBodies) || ['terra', 'venus', 'marte']);
+  if (window.Compare && Compare.isActive()) {
+    Compare.getList().forEach((item) => {
+      const vb = item.sim && item.sim.mission && item.sim.mission.visibleBodies;
+      if (vb) vb.forEach((id) => visibleSet.add(id));
+    });
+  }
   let maxR_AU = 0;
-  for (const pid of visible) {
+  visibleSet.forEach((pid) => {
     const b = Bodies[pid];
     if (b && b.orbital_radius) maxR_AU = Math.max(maxR_AU, b.orbital_radius / UA);
-  }
+  });
   // Margem mínima — com constrain:'domain', plotly respeita esse range
   // e ajusta o domínio do eixo pra manter scaleratio. Zoom mais tight.
   const lim = maxR_AU > 0 ? maxR_AU * 1.08 : 1.7;
@@ -168,6 +175,11 @@ function plotTrajectory(divId, sim, opts = {}) {
   const frame = opts.frame || 'helio';
   const isNarrow = window.innerWidth < 820;
   const traces = buildTrajectoryTraces(sim, { t, frame, showShadow: !!opts.showShadow });
+  // Compare overlay: trajetórias salvas sobrepostas sobre o sim atual
+  if (window.Compare && Compare.isActive() && frame === 'helio') {
+    const overlay = Compare.buildOverlayTraces(sim, { frame });
+    overlay.forEach((tr) => traces.push(tr));
+  }
   const lim = computeLim(sim, frame);
   const isKkm = sim.mission && sim.mission.plotUnit === 'kkm';
   const unit = isKkm ? 'mil km' : 'UA';

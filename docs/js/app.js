@@ -1136,6 +1136,77 @@ function bindTheoryTOC() {
 }
 
 // ============================================================
+// Compare mode — overlay de trajetórias salvas
+// ============================================================
+
+function renderCompareDrawer() {
+  if (!window.Compare) return;
+  const drawer = $("compareDrawer");
+  const list = $("compareList");
+  const count = $("compareCount");
+  const items = Compare.getList();
+  if (!drawer || !list || !count) return;
+  count.textContent = items.length;
+  if (items.length === 0) {
+    drawer.hidden = true;
+    list.innerHTML = '';
+  } else {
+    drawer.hidden = false;
+    list.innerHTML = items.map((it) => `
+      <div class="compare-item" data-id="${it.id}">
+        <span class="compare-swatch" style="background:${it.color};color:${it.color}"></span>
+        <span class="compare-item-label">${it.label}</span>
+        <span class="compare-item-dv">${it.deltaV.toFixed(2)}</span>
+        <button class="compare-item-remove" data-remove="${it.id}" aria-label="remover">✕</button>
+      </div>
+    `).join('');
+    list.querySelectorAll('[data-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        Compare.remove(btn.dataset.remove);
+        haptic(6);
+      });
+    });
+  }
+  // Atualiza estado do botão "adicionar"
+  const btnAdd = $("btnCompareAdd");
+  if (btnAdd) {
+    btnAdd.disabled = !Compare.canAddMore();
+    btnAdd.style.opacity = btnAdd.disabled ? '0.45' : '1';
+  }
+  // Pausa animação em compare mode
+  if (Compare.isActive() && Anim.playing) animPause();
+}
+
+function bindCompare() {
+  if (!window.Compare) return;
+  const btnAdd = $("btnCompareAdd");
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => {
+      if (!Anim.sim) return;
+      const m = currentMission();
+      const x = readInputs();
+      const ok = Compare.add({
+        label: m.short || m.label,
+        missionId: m.id, x, sim: Anim.sim,
+      });
+      haptic(ok ? 10 : 18);
+    });
+  }
+  const btnClear = $("compareClear");
+  if (btnClear) btnClear.addEventListener('click', () => { Compare.clear(); haptic(8); });
+  // Quando lista muda → re-render plot + drawer
+  Compare.onChange(() => {
+    renderCompareDrawer();
+    if (Anim.sim) {
+      plotTrajectory("plot", Anim.sim, {
+        t: Anim.t, frame: Anim.frame, showShadow: Anim.showShadow,
+      });
+    }
+  });
+  renderCompareDrawer();
+}
+
+// ============================================================
 // Share / Export — URL com state, copiar link, baixar PNG
 // ============================================================
 
@@ -1227,6 +1298,7 @@ function bindEvents() {
   bindTheoryTOC();
   bindOnboard();
   bindShare();
+  bindCompare();
   // Haptic feedback em interações principais (mobile)
   $$('nav.bottom-nav a').forEach((a) =>
     a.addEventListener('click', () => haptic(6))

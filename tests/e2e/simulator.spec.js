@@ -970,3 +970,58 @@ test('53 - share copy URL coloca no clipboard (verifica toast)', async ({ page, 
   const toastTxt = await page.locator('#shareToast').textContent();
   expect(toastTxt).toContain('copiado');
 });
+
+test('54 - compare: add 2 trajetórias mostra overlay', async ({ page }) => {
+  await selectMission(page, 'mars-direct-leo');
+  await clickFirstPreset(page);
+  await page.waitForTimeout(400);
+  // Adiciona snapshot Hohmann
+  await page.click('#btnCompareAdd');
+  await page.waitForSelector('#compareDrawer:not([hidden])');
+  let count = await page.locator('#compareCount').textContent();
+  expect(count.trim()).toBe('1');
+
+  // Muda params (slide t_TM pra outro valor) e adiciona segundo snapshot
+  await page.evaluate(() => {
+    const sliders = document.querySelectorAll('#paramInputs .pc-slider');
+    if (sliders[1]) {
+      sliders[1].value = '300';
+      sliders[1].dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(400);
+  await page.click('#btnCompareAdd');
+  count = await page.locator('#compareCount').textContent();
+  expect(count.trim()).toBe('2');
+
+  // Verifica que o plot tem traços extras (compare overlay adds 1+ trace per item)
+  const numTraces = await page.evaluate(() => {
+    const div = document.getElementById('plot');
+    return (div._fullData || div.data || []).length;
+  });
+  expect(numTraces).toBeGreaterThan(8); // base ~7-8, compare adiciona ~2 por item
+  await shoot(page, '54-compare-overlay');
+});
+
+test('55 - compare: clear esvazia e esconde drawer', async ({ page }) => {
+  await selectMission(page, 'mars-direct-leo');
+  await clickFirstPreset(page);
+  await page.click('#btnCompareAdd');
+  await page.waitForSelector('#compareDrawer:not([hidden])');
+  await page.click('#compareClear');
+  await page.waitForFunction(() => document.getElementById('compareDrawer').hasAttribute('hidden'));
+  const count = await page.locator('#compareCount').textContent();
+  expect(count.trim()).toBe('0');
+});
+
+test('56 - compare: limite 3 itens — botão fica disabled', async ({ page }) => {
+  await selectMission(page, 'mars-direct-leo');
+  for (let i = 0; i < 3; i++) {
+    await page.click('#btnCompareAdd');
+    await page.waitForTimeout(200);
+  }
+  const count = await page.locator('#compareCount').textContent();
+  expect(count.trim()).toBe('3');
+  const disabled = await page.locator('#btnCompareAdd').evaluate((b) => b.disabled);
+  expect(disabled).toBe(true);
+});
