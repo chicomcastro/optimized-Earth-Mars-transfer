@@ -191,16 +191,18 @@ function plotTrajectory(divId, sim, opts = {}) {
       title: { text: `y [${unit}]` }, range: [-lim, lim],
       gridcolor: '#1d2742', zerolinecolor: '#2c3a66',
     },
-    margin: isNarrow ? { t: 28, l: 38, r: 18, b: 56 } : { t: 30, l: 50, r: 30, b: 40 },
+    // Em mobile, margens mínimas pra plot area ficar quadrado e scaleanchor
+    // não esticar x. Legenda overlay no canto, sem title acima (redundante).
+    margin: isNarrow ? { t: 8, l: 38, r: 8, b: 36 } : { t: 30, l: 50, r: 30, b: 40 },
     showlegend: true,
     legend: isNarrow
-      ? { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
-          font: { size: 9 }, orientation: 'h',
-          x: 0.5, xanchor: 'center', y: -0.18, yanchor: 'top' }
+      ? { bgcolor: 'rgba(7,9,18,0.85)', bordercolor: '#1d2742', borderwidth: 1,
+          font: { size: 8 }, orientation: 'h',
+          x: 0.5, xanchor: 'center', y: 0.02, yanchor: 'bottom' }
       : { bgcolor: 'rgba(7,9,18,0.7)', bordercolor: '#1d2742', borderwidth: 1,
           font: { size: 10 }, orientation: 'v',
           x: 1.02, xanchor: 'left', y: 1, yanchor: 'top' },
-    title: { text: opts.title || titleMap[frame], font: { size: 13 } },
+    title: isNarrow ? null : { text: opts.title || titleMap[frame], font: { size: 13 } },
   };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, displaylogo: false });

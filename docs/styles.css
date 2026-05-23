@@ -516,8 +516,8 @@ input[type="range"]::-moz-range-thumb {
    ============================================================ */
 .plot { height: clamp(360px, 60vh, 560px); width: 100%; min-width: 0; overflow: hidden; }
 @media (max-width: 820px) {
-  /* Plot quadrado em mobile pra evitar overflow do range com scaleanchor */
-  .plot { aspect-ratio: 1 / 1.05; height: auto; min-height: 340px; max-height: 80vh; }
+  /* Plot quadrado em mobile (scaleanchor + margens mínimas mantém data 1:1) */
+  .plot { aspect-ratio: 1 / 1; height: auto; min-height: 320px; max-height: 90vh; }
   .plot-small { height: clamp(180px, 22vh, 260px); }
 }
 .plot-small { height: clamp(220px, 30vh, 340px); min-width: 0; overflow: hidden; }
