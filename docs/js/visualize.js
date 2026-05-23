@@ -224,6 +224,7 @@ function updateTrajectoryFrame(divId, sim, opts) {
 }
 
 function plotConvergence(divId, history) {
+  const isNarrow = window.innerWidth < 820;
   const trace = {
     x: history.map((_, i) => i),
     y: history,
@@ -237,10 +238,16 @@ function plotConvergence(divId, history) {
   };
   const layout = {
     paper_bgcolor: '#070912', plot_bgcolor: '#070912',
-    font: { color: '#e8eefb', size: 11 },
-    xaxis: { title: 'Iteração', gridcolor: '#1d2742' },
-    yaxis: { title: 'ΔV [km/s]', gridcolor: '#1d2742' },
-    margin: { t: 24, l: 50, r: 12, b: 40 },
+    font: { color: '#e8eefb', size: isNarrow ? 10 : 11 },
+    xaxis: {
+      title: { text: 'Iteração', standoff: 6, font: { size: isNarrow ? 10 : 12 } },
+      gridcolor: '#1d2742', automargin: true,
+    },
+    yaxis: {
+      title: { text: 'ΔV [km/s]', standoff: 6, font: { size: isNarrow ? 10 : 12 } },
+      gridcolor: '#1d2742', automargin: true,
+    },
+    margin: isNarrow ? { t: 16, l: 42, r: 12, b: 38 } : { t: 24, l: 50, r: 12, b: 40 },
     showlegend: false,
   };
   Plotly.newPlot(divId, [trace], layout, { responsive: true, displaylogo: false });
