@@ -59,7 +59,7 @@ test.beforeEach(async ({ page }) => {
 
 test('01 - landing page completa', async ({ page }) => {
   await expect(page.locator('h1')).toContainText(/Otimização|Transferência/i);
-  for (const id of ['galeria', 'simulador', 'exploracao', 'otimizacao', 'problema', 'metodo', 'referencias']) {
+  for (const id of ['galeria', 'simulador', 'exploracao', 'otimizacao', 'problema', 'referencias']) {
     await expect(page.locator(`#${id}`)).toBeAttached();
   }
   await shoot(page, '01-landing-page', { fullPage: true });

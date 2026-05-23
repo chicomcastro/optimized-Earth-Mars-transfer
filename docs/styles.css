@@ -1153,7 +1153,7 @@ footer {
   .mp-badge { font-size: 0.62rem; padding: 0.18rem 0.5rem; }
   .mp-back { font-size: 0.72rem; padding: 0.25rem 0.55rem; }
   .mission-description { font-size: 0.78rem; padding: 0.45rem 0.65rem; margin-bottom: 0.4rem; }
-}
+
   main > section:not(.tab-active) { display: none !important; }
   main > section.tab-active {
     border-bottom: none;
