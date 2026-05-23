@@ -516,8 +516,8 @@ input[type="range"]::-moz-range-thumb {
    ============================================================ */
 .plot { height: clamp(360px, 60vh, 560px); width: 100%; min-width: 0; overflow: hidden; }
 @media (max-width: 820px) {
-  /* Plot quadrado em mobile (scaleanchor + margens mínimas mantém data 1:1) */
-  .plot { aspect-ratio: 1 / 1; height: auto; min-height: 320px; max-height: 90vh; }
+  /* Quadrado em mobile (constrain:'domain' garante data 1:1 dentro) */
+  .plot { aspect-ratio: 1 / 1; height: auto; min-height: 320px; max-height: 80vh; }
   .plot-small { height: clamp(180px, 22vh, 260px); }
 }
 .plot-small { height: clamp(220px, 30vh, 340px); min-width: 0; overflow: hidden; }
@@ -1320,10 +1320,13 @@ footer {
   .mp-back::before { content: "↩"; font-size: 1rem; }
   /* Descrição escondida em mobile — pode expandir via botão "?" se necessário */
   .mission-description { display: none; }
-  /* Cards do simulador mais finos e gap menor */
-  #simulador .card { padding: 0.7rem; margin: 0; }
-  #simulador .simulator-grid { gap: 0.5rem; }
+  /* Cards do simulador mais finos com spacing consistente */
+  #simulador .card { padding: 0.7rem; margin: 0 0 0.55rem; }
+  #simulador .simulator-grid { gap: 0.55rem; margin: 0; }
+  #simulador .simulator-grid > .card { margin: 0; } /* gap do grid já espaça */
   #simulador .simulator-grid > .card:first-child { padding: 0.7rem 0.7rem 0.4rem; }
+  /* Previne overflow horizontal mas não vertical (não clipa accordion summary) */
+  #simulador .card { overflow-x: clip; max-width: 100%; }
   /* Esconde "tocar pra editar" — redundante; o ▶ já indica acordeão */
   .params-accordion .pa-hint { font-size: 0; }
 
