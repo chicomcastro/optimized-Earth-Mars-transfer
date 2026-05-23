@@ -78,6 +78,7 @@ header.hero {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.hero h1 .title-short { display: none; } /* só em mobile via media query */
 .hero p.lead {
   color: var(--text-soft);
   max-width: 720px;
@@ -133,33 +134,39 @@ nav.bottom-nav {
   nav.bottom-nav {
     display: flex;
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-    background: rgba(7, 9, 18, 0.86);
+    background: rgba(7, 9, 18, 0.94);
     backdrop-filter: saturate(160%) blur(18px);
     -webkit-backdrop-filter: saturate(160%) blur(18px);
     border-top: 1px solid var(--border-soft);
-    padding: 0.45rem 0.4rem calc(0.45rem + var(--bottom-safe));
+    padding: 0.4rem 0.3rem calc(0.4rem + var(--bottom-safe));
     justify-content: space-around;
     align-items: stretch;
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
   }
   nav.bottom-nav a {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 0.65rem; gap: 0.18rem;
-    padding: 0.4rem 0.2rem; border-radius: 10px;
+    color: var(--muted); font-size: 0.68rem; gap: 0.2rem;
+    padding: 0.45rem 0.25rem; border-radius: 10px;
     transition: all var(--t-fast) var(--ease);
-    min-height: var(--tap);
+    min-height: 48px; /* touch target Apple HIG */
     text-decoration: none;
+    line-height: 1;
   }
   nav.bottom-nav a .icon {
-    width: 22px; height: 22px; display: grid; place-items: center;
+    width: 24px; height: 24px; display: grid; place-items: center;
     transition: transform var(--t-med) var(--ease);
   }
-  nav.bottom-nav a .icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; }
+  nav.bottom-nav a .icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
   nav.bottom-nav a.active {
     color: var(--accent);
+    background: var(--accent-soft);
   }
-  nav.bottom-nav a.active .icon { transform: translateY(-2px) scale(1.1); }
-  nav.bottom-nav a:active { transform: scale(0.95); }
+  nav.bottom-nav a.active .icon { transform: translateY(-1px) scale(1.1); }
+  nav.bottom-nav a:active { transform: scale(0.92); }
+}
+@media (max-width: 360px) {
+  nav.bottom-nav a span:not(.icon) { display: none; } /* só ícones */
+  nav.bottom-nav a { min-height: 44px; }
 }
 
 /* ============================================================
@@ -498,8 +505,18 @@ input[type="range"]::-moz-range-thumb {
 /* ============================================================
    PLOTS
    ============================================================ */
-.plot { height: clamp(360px, 60vh, 560px); width: 100%; }
-.plot-small { height: clamp(220px, 30vh, 340px); }
+.plot { height: clamp(360px, 60vh, 560px); width: 100%; min-width: 0; overflow: hidden; }
+.plot-small { height: clamp(220px, 30vh, 340px); min-width: 0; overflow: hidden; }
+/* Força o SVG do Plotly a respeitar a largura do container */
+.plot, .plot-small,
+.plot .js-plotly-plot, .plot-small .js-plotly-plot,
+.plot .plot-container, .plot-small .plot-container,
+.plot .svg-container, .plot-small .svg-container,
+.plot svg, .plot-small svg {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+.plot-wrap { overflow: hidden; width: 100%; min-width: 0; }
 
 /* Toolbar de referencial e shadow */
 .anim-toolbar {
@@ -508,6 +525,29 @@ input[type="range"]::-moz-range-thumb {
 }
 .segmented-sm label { font-size: 0.78rem; padding: 0.35rem 0.6rem; min-height: 36px; }
 .segmented-sm { max-width: 100%; }
+.toggle-icon { display: none; }
+@media (max-width: 820px) {
+  /* Em mobile, anim-toolbar com ícones-only pra caber */
+  .anim-toolbar {
+    padding: 0.4rem 0.45rem;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+  }
+  .segmented-sm {
+    flex: 1; min-width: 0; max-width: 100%;
+  }
+  .segmented-sm label {
+    padding: 0.3rem 0.4rem; font-size: 0.72rem;
+    gap: 0.2rem;
+  }
+  .segmented-sm .ft-label { display: none; } /* só ícone em mobile */
+  .segmented-sm .ft-icon { font-size: 0.95rem; }
+  /* Toggle shadow vira só ícone */
+  .toggle { padding: 0.3rem 0.4rem; flex-shrink: 0; }
+  .toggle .toggle-label { display: none; }
+  .toggle .toggle-icon { display: inline-block; font-size: 0.95rem; }
+  .toggle input { width: 12px; height: 12px; }
+}
 .toggle {
   display: inline-flex; align-items: center; gap: 0.4rem;
   font-size: 0.78rem; color: var(--text-soft); cursor: pointer;
@@ -897,6 +937,82 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted); font-size: 0.78rem; margin-top: 0.4rem; text-align: center;
 }
 
+/* TOC dentro da Teoria — chips clicáveis */
+.theory-toc {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  margin: 0.5rem 0 1.2rem;
+  padding: 0.6rem; border-radius: 10px;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+}
+.theory-toc a {
+  font-size: 0.78rem; padding: 0.3rem 0.65rem;
+  border-radius: 999px; background: var(--panel);
+  border: 1px solid var(--border-soft);
+  color: var(--text-soft); text-decoration: none;
+  transition: all var(--t-fast) var(--ease);
+}
+.theory-toc a:hover {
+  color: var(--accent); border-color: rgba(34, 211, 238, 0.4);
+  background: var(--accent-soft);
+}
+
+/* Accordion de parâmetros (mobile) */
+.params-accordion {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.5rem; margin-top: 0.4rem;
+}
+.params-accordion > summary {
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 600; padding: 0.4rem 0;
+  color: var(--text-soft); font-size: 0.86rem;
+  list-style: none;
+}
+.params-accordion > summary::-webkit-details-marker { display: none; }
+.params-accordion > summary::before {
+  content: "▶"; margin-right: 0.45rem; font-size: 0.65rem;
+  color: var(--accent);
+  transition: transform var(--t-fast) var(--ease);
+  display: inline-block;
+}
+.params-accordion[open] > summary::before { transform: rotate(90deg); }
+.params-accordion .pa-label { flex: 1; }
+.params-accordion .pa-hint { font-size: 0.72rem; color: var(--muted); font-weight: 400; }
+/* Desktop: sempre aberto, sem decoração de details */
+@media (min-width: 821px) {
+  .params-accordion > summary { display: none; }
+  .params-accordion { border-top: none; padding-top: 0; margin-top: 0; }
+}
+
+/* Drawer pros ranges do porkchop (mobile) */
+.porkchop-ranges-details {
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--border-soft); border-radius: 10px;
+  background: rgba(7, 9, 18, 0.4);
+}
+.porkchop-ranges-details > summary {
+  cursor: pointer; user-select: none;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem; color: var(--text-soft); font-weight: 500;
+  list-style: none;
+}
+.porkchop-ranges-details > summary::-webkit-details-marker { display: none; }
+.porkchop-ranges-details > summary::after {
+  content: "⌄"; float: right; color: var(--accent); font-weight: 700;
+  transition: transform var(--t-fast) var(--ease);
+}
+.porkchop-ranges-details[open] > summary::after { transform: rotate(180deg); }
+.porkchop-ranges-details .porkchop-ranges {
+  margin-bottom: 0; border: none; background: transparent; padding: 0.4rem 0.75rem 0.75rem;
+}
+/* Desktop: sempre aberto */
+@media (min-width: 821px) {
+  .porkchop-ranges-details > summary { display: none; }
+  .porkchop-ranges-details {
+    border: none; background: transparent;
+  }
+}
+
 .formula {
   background: var(--bg-elev); padding: 0.55rem 0.95rem;
   border-left: 3px solid var(--accent);
@@ -993,11 +1109,122 @@ footer {
    MOBILE: SPA-style tabs — só a seção ativa é mostrada
    ============================================================ */
 @media (max-width: 820px) {
-  /* Esconde tudo, mostra só a seção marcada como .tab-active */
+  /* Galeria iOS-list: 1 coluna, cards horizontais com ícone + texto + ΔV */
+  .gallery-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.55rem;
+  }
+  .mission-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "icon  title cost"
+      "icon  sub   cta";
+    gap: 0.15rem 0.7rem;
+    align-items: center;
+    min-height: 0;
+    padding: 0.75rem 0.85rem;
+  }
+  .mission-card .mc-badge {
+    grid-area: icon;
+    width: 38px; height: 38px;
+    align-self: center;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    display: flex; justify-content: center; align-items: center;
+    flex-direction: column;
+    font-size: 0;
+  }
+  .mission-card .mc-badge::after {
+    content: "";
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--dest-color, #888);
+    box-shadow: 0 0 12px var(--dest-color);
+  }
+  .mission-card .mc-dest-dot { display: none; }
+  .mission-card .mc-title {
+    grid-area: title;
+    margin: 0; font-size: 0.92rem; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mission-card .mc-subtitle {
+    grid-area: sub; margin: 0;
+    font-size: 0.75rem; color: var(--text-soft);
+  }
+  .mission-card .mc-cost {
+    grid-area: cost; margin: 0;
+    flex-direction: column; align-items: flex-end; gap: 0;
+  }
+  .mission-card .mc-cost-value { font-size: 1.05rem; font-weight: 700; }
+  .mission-card .mc-cost-unit { font-size: 0.65rem; }
+  .mission-card .mc-desc { display: none; } /* sem descrição na lista */
+  .mission-card .mc-cta {
+    grid-area: cta; justify-self: end;
+    font-size: 0.7rem; padding: 0.18rem 0.45rem;
+  }
+  .mission-card.active .mc-cta { display: none; }
+  /* Cost display sticky no simulador */
+  #simulador .cost-display {
+    position: sticky;
+    top: calc(40px + var(--top-safe)); /* abaixo do header sticky */
+    z-index: 15;
+    margin-bottom: 0.7rem;
+    background:
+      radial-gradient(120% 100% at 0% 0%, var(--accent-soft), transparent 60%),
+      rgba(14, 20, 40, 0.96);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    padding: 0.7rem 0.9rem;
+  }
+  #simulador .cost-display .cost-label { font-size: 0.62rem; }
+  #simulador .cost-display .cost-value { font-size: 1.7rem; }
+  #simulador .cost-display .cost-sub { gap: 0.3rem; margin-top: 0.25rem; }
+  #simulador .cost-display .deltaV-pill { font-size: 0.68rem; padding: 0.18rem 0.42rem; }
+
+  /* Mission picker uma linha compacta — descrição escondida (já está na galeria) */
+  .mission-picker {
+    gap: 0.4rem; margin-bottom: 0.3rem;
+    flex-wrap: nowrap; align-items: center;
+  }
+  .mp-title {
+    font-size: 0.9rem; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mp-badge { font-size: 0.6rem; padding: 0.15rem 0.45rem; flex-shrink: 0; }
+  .mp-back {
+    font-size: 0; padding: 0.4rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .mp-back::before { content: "↩"; font-size: 1rem; }
+  /* Descrição escondida em mobile — pode expandir via botão "?" se necessário */
+  .mission-description { display: none; }
+  /* Cards do simulador mais finos */
+  #simulador .card { padding: 0.7rem; }
+  #simulador .simulator-grid > .card:first-child { padding: 0.7rem 0.7rem 0.5rem; }
+
+  /* Player de animação mais compacto */
+  .anim-player {
+    gap: 0.35rem; padding: 0.4rem 0.45rem;
+    flex-wrap: nowrap;
+  }
+  .btn-icon { width: 32px; height: 32px; font-size: 0.82rem; }
+  .anim-scrubber { min-width: 60px; }
+  .anim-time { font-size: 0.68rem; min-width: 60px; }
+  .anim-speed label { font-size: 0.62rem; padding: 0.2rem 0.35rem; min-height: 28px; }
+
+  /* Garante que SVG do plot fica dentro do card */
+  .plot-wrap { overflow: hidden; }
+
+  /* Cost display ainda mais compacto */
+  #simulador .cost-display .cost-label { font-size: 0.58rem; letter-spacing: 0.04em; }
+  #simulador .cost-display .cost-value { font-size: 1.5rem; }
+  #simulador .cost-display .cost-sub { gap: 0.25rem; margin-top: 0.2rem; }
+  #simulador .cost-display .deltaV-pill { font-size: 0.64rem; padding: 0.15rem 0.38rem; }
+
   main > section:not(.tab-active) { display: none !important; }
   main > section.tab-active {
     border-bottom: none;
-    padding-top: 1rem;
+    padding-top: 0.6rem;
     /* Anima entrada de cada tab */
     animation: tab-fade-in 240ms var(--ease);
   }
@@ -1005,11 +1232,32 @@ footer {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  /* Hero compacta no modo tabs */
-  header.hero { padding: 0.9rem 1rem 0.5rem; }
-  .hero h1 { font-size: 1.4rem; margin-bottom: 0.3rem; line-height: 1.1; }
-  .hero p.lead { font-size: 0.82rem; margin: 0; }
-  .hero .meta { font-size: 0.7rem; margin-top: 0.4rem; }
+  /* Hero sticky e bem compacta — apenas título curto + status */
+  header.hero {
+    position: sticky; top: 0; z-index: 20;
+    padding: calc(0.4rem + var(--top-safe)) 1rem 0.4rem;
+    background: rgba(7, 9, 18, 0.92);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  /* Mobile: usa só o título curto */
+  .hero h1 .title-full { display: none; }
+  .hero h1 .title-short { display: inline; }
+  .hero h1 {
+    font-size: 1rem; margin: 0; line-height: 1.2; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hero p.lead { display: none; }
+  .hero .meta { display: none; }
+
+  /* Esconde título redundante de section em mobile — bottom-nav já indica */
+  main > section > h2 { display: none; }
+  /* Esconde descrição longa da seção (pode virar tooltip futuramente) */
+  main > section > p:first-of-type { display: none; }
+  /* Reduz padding superior das sections */
+  main > section.tab-active { padding-top: 0.4rem; }
+  main { padding-left: 0.6rem; padding-right: 0.6rem; }
   /* Galeria compacta */
   .gallery-grid { gap: 0.7rem; grid-template-columns: 1fr 1fr; }
   .mission-card {

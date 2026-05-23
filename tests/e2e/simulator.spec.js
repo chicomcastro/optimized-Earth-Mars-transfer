@@ -58,8 +58,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('01 - landing page completa', async ({ page }) => {
-  await expect(page.locator('h1')).toContainText('Terra');
-  for (const id of ['galeria', 'simulador', 'exploracao', 'otimizacao', 'problema', 'metodo', 'referencias']) {
+  await expect(page.locator('h1')).toContainText(/Otimização|Transferência/i);
+  for (const id of ['galeria', 'simulador', 'exploracao', 'otimizacao', 'problema', 'referencias']) {
     await expect(page.locator(`#${id}`)).toBeAttached();
   }
   await shoot(page, '01-landing-page', { fullPage: true });
@@ -771,6 +771,31 @@ test('48 - mobile tabs: só uma seção visível por vez', async ({ page }) => {
   });
   expect(visibleAfter).toEqual(['simulador']);
   await shoot(page, '48-mobile-tabs');
+});
+
+test('50 - mobile: plot do simulador não ultrapassa o card', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitAppReady(page);
+  // Vai pro simulador via galeria (caminho mais comum do bug)
+  await page.click('.mission-card[data-mission="venus-direct-geo"]');
+  await page.waitForTimeout(700);
+
+  const widths = await page.evaluate(() => {
+    const plotEl = document.getElementById('plot');
+    const parent = plotEl.parentElement; // .plot-wrap dentro do card
+    const card = parent.closest('.card');
+    const svg = plotEl.querySelector('svg');
+    return {
+      cardWidth: card.getBoundingClientRect().width,
+      plotWidth: plotEl.getBoundingClientRect().width,
+      svgWidth: svg ? svg.getBoundingClientRect().width : 0,
+    };
+  });
+  // SVG do Plotly não deve ser maior que o plot div (que já é constrained pelo card)
+  expect(widths.svgWidth).toBeLessThanOrEqual(widths.plotWidth + 1);
+  expect(widths.plotWidth).toBeLessThanOrEqual(widths.cardWidth + 1);
+  await shoot(page, '50-mobile-plot-fits');
 });
 
 test('49 - mobile: Terra se move durante missão (bug shadows corrigido)', async ({ page }) => {

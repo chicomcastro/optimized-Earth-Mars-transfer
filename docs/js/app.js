@@ -555,7 +555,9 @@ function setMission(missionId, opts = {}) {
   currentMissionId = missionId;
   const m = currentMission();
 
-  $("missionTitle").textContent = m.label;
+  // Em mobile usa label curto (m.short); desktop usa o longo (m.label)
+  const isNarrow = window.matchMedia('(max-width: 820px)').matches;
+  $("missionTitle").textContent = (isNarrow && m.short) ? m.short : m.label;
   $("missionBadge").textContent = m.badge || '';
   $("missionDescription").textContent = m.description || '';
 
@@ -904,6 +906,19 @@ function setActiveTab(id) {
   if (isMobileTabs()) {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  // Plotly precisa redimensionar quando o container muda de display:none → visible
+  // (mede a width na inicialização — se zero, fica gigante depois)
+  if (typeof Plotly !== 'undefined') {
+    requestAnimationFrame(() => {
+      const plotIds = ['plot', 'porkchop', 'convergence'];
+      for (const pid of plotIds) {
+        const el = document.getElementById(pid);
+        if (el && el.offsetWidth > 0 && el._fullLayout) {
+          try { Plotly.Plots.resize(el); } catch (e) {}
+        }
+      }
+    });
+  }
 }
 
 function bindNav() {
@@ -983,6 +998,27 @@ function bindReveal() {
 // Init
 // ============================================================
 
+// Haptic feedback (no-op se browser não suportar)
+function haptic(ms = 8) {
+  if (navigator.vibrate) {
+    try { navigator.vibrate(ms); } catch (e) {}
+  }
+}
+
+function bindTheoryTOC() {
+  $$('.theory-toc a').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.dataset.toc;
+      const target = document.getElementById(id);
+      if (!target) return;
+      haptic();
+      // Scroll suave dentro da tab (não troca de tab)
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
 function bindEvents() {
   $("btnRun").addEventListener("click", runPSO);
   $("btnStop").addEventListener("click", stopPSO);
@@ -990,11 +1026,51 @@ function bindEvents() {
   bindNav();
   bindReveal();
   bindAnim();
+  bindTheoryTOC();
+  // Haptic feedback em interações principais (mobile)
+  $$('nav.bottom-nav a').forEach((a) =>
+    a.addEventListener('click', () => haptic(6))
+  );
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.matches('.preset-btn, .filter-chip, .mission-card, #btnRun, #btnPorkchop, .btn-icon')) {
+      haptic(8);
+    }
+  }, true);
   window.addEventListener('hashchange', handleHashRoute);
+}
+
+function applyDetailsStateForViewport() {
+  const isMobile = isMobileTabs();
+  $$("details.params-accordion, details.porkchop-ranges-details").forEach((d) => {
+    d.open = !isMobile;
+  });
+}
+
+// ResizeObserver: força Plotly re-layout quando o container do plot muda
+function bindPlotResize() {
+  if (typeof ResizeObserver === 'undefined') return;
+  const plotIds = ['plot', 'porkchop', 'convergence'];
+  const ro = new ResizeObserver((entries) => {
+    if (typeof Plotly === 'undefined') return;
+    for (const e of entries) {
+      if (e.contentRect.width > 0 && e.target._fullLayout) {
+        try { Plotly.Plots.resize(e.target); } catch (_) {}
+      }
+    }
+  });
+  // Observa quando os elementos existem
+  plotIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) ro.observe(el);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
+  applyDetailsStateForViewport();
+  bindPlotResize();
+  window.addEventListener('resize', applyDetailsStateForViewport);
   const initialHash = window.location.hash;
   const m = initialHash.match(/^#\/mission\/([\w-]+)/);
   const initialMission = (m && Missions[m[1]]) ? m[1] : 'mars-direct-leo';
