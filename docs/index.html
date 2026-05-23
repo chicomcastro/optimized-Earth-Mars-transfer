@@ -13,7 +13,10 @@
 
 <header class="hero">
   <div class="hero-inner">
-    <h1>Otimização de <span class="accent">transferências interplanetárias</span></h1>
+    <h1>
+      <span class="title-full">Otimização de <span class="accent">transferências interplanetárias</span></span>
+      <span class="title-short">🛰 <span class="accent">Trajetórias</span></span>
+    </h1>
     <p class="lead">
       Simulador interativo com Lambert + PSO. Escolha uma missão da galeria,
       edite parâmetros e veja ΔV/trajetória em tempo real. Compara variantes
@@ -98,15 +101,22 @@
       <div class="anim-toolbar">
         <div class="segmented segmented-sm" role="tablist" aria-label="Referencial">
           <input type="radio" id="frameHelio" name="frame" checked />
-          <label for="frameHelio" title="Sol no centro, inercial">☀ helio</label>
+          <label for="frameHelio" title="Sol no centro (inercial)">
+            <span class="ft-icon">☀</span><span class="ft-label">helio</span>
+          </label>
           <input type="radio" id="frameGeo" name="frame" />
-          <label for="frameGeo" title="Terra fixa">🌍 geo</label>
+          <label for="frameGeo" title="Terra fixa">
+            <span class="ft-icon">🌍</span><span class="ft-label">geo</span>
+          </label>
           <input type="radio" id="frameSyn" name="frame" />
-          <label for="frameSyn" title="Rotativo Terra-Sol">↻ sinódico</label>
+          <label for="frameSyn" title="Rotativo Terra-Sol">
+            <span class="ft-icon">↻</span><span class="ft-label">sinódico</span>
+          </label>
         </div>
-        <label class="toggle">
+        <label class="toggle" title="Posição inicial dos corpos">
           <input type="checkbox" id="toggleShadow" />
-          <span>shadow t=0</span>
+          <span class="toggle-label">shadow t=0</span>
+          <span class="toggle-icon" aria-hidden="true">⊙</span>
         </label>
       </div>
 

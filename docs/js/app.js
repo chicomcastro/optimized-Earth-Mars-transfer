@@ -555,7 +555,9 @@ function setMission(missionId, opts = {}) {
   currentMissionId = missionId;
   const m = currentMission();
 
-  $("missionTitle").textContent = m.label;
+  // Em mobile usa label curto (m.short); desktop usa o longo (m.label)
+  const isNarrow = window.matchMedia('(max-width: 820px)').matches;
+  $("missionTitle").textContent = (isNarrow && m.short) ? m.short : m.label;
   $("missionBadge").textContent = m.badge || '';
   $("missionDescription").textContent = m.description || '';
 
@@ -1045,9 +1047,29 @@ function applyDetailsStateForViewport() {
   });
 }
 
+// ResizeObserver: força Plotly re-layout quando o container do plot muda
+function bindPlotResize() {
+  if (typeof ResizeObserver === 'undefined') return;
+  const plotIds = ['plot', 'porkchop', 'convergence'];
+  const ro = new ResizeObserver((entries) => {
+    if (typeof Plotly === 'undefined') return;
+    for (const e of entries) {
+      if (e.contentRect.width > 0 && e.target._fullLayout) {
+        try { Plotly.Plots.resize(e.target); } catch (_) {}
+      }
+    }
+  });
+  // Observa quando os elementos existem
+  plotIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) ro.observe(el);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
   applyDetailsStateForViewport();
+  bindPlotResize();
   window.addEventListener('resize', applyDetailsStateForViewport);
   const initialHash = window.location.hash;
   const m = initialHash.match(/^#\/mission\/([\w-]+)/);
